@@ -4,6 +4,7 @@ import { exportToHtml } from "@fs-builder/exporters";
 import "./App.css";
 import { ElementRenderer } from "./components/ElementRenderer";
 import { PropertiesPanel } from "./components/PropertiesPanel";
+import { LayersPanel } from "./components/LayersPanel";
 
 // A sample schema to serve as the initial state
 const initialSchema: UIElement = {
@@ -42,6 +43,17 @@ const initialSchema: UIElement = {
  */
 const generateId = (type: ElementType) =>
   `${type}-${Math.random().toString(36).substr(2, 9)}`;
+
+/** Counts all elements in the tree recursively. */
+function countElements(element: UIElement): number {
+  let count = 1;
+  if ("children" in element && element.children.length > 0) {
+    for (const child of element.children) {
+      count += countElements(child);
+    }
+  }
+  return count;
+}
 
 function findElementById(element: UIElement, id: string): UIElement | null {
   if (element.id === id) {
@@ -280,14 +292,17 @@ function App() {
           </div>
         </div>
 
-        {/* Layers Section (placeholder) */}
+        {/* Layers Section — interactive DOM tree */}
         <div className="sidebar-section layers-section">
           <div className="sidebar-section-header">
             <span className="sidebar-section-title">Layers</span>
+            <span className="sidebar-section-count">{countElements(schema)}</span>
           </div>
-          <div className="layers-placeholder">
-            Layer panel coming soon
-          </div>
+          <LayersPanel
+            element={schema}
+            selectedElementId={selectedElementId}
+            onSelect={handleSelectElement}
+          />
         </div>
       </aside>
 

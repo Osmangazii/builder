@@ -1,5 +1,5 @@
 import React from "react";
-import type { UIElement } from "@fs-builder/core-schema";
+import type { UIElement, TextProps, ButtonProps, ContainerProps } from "@fs-builder/core-schema";
 
 interface ElementRendererProps {
   element: UIElement;
@@ -22,24 +22,26 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
 
   // Base styles for all elements
   const baseStyle: React.CSSProperties = {
-    // Add a cursor pointer to indicate elements are clickable
     cursor: "pointer",
   };
 
   // Selection style
   const selectionStyle: React.CSSProperties = isSelected
-    ? { outline: "2px solid #3b82f6" } // A nice blue outline
+    ? { outline: "2px solid #3b82f6" }
     : {};
 
   const handleClick = (e: React.MouseEvent) => {
-    // Stop event bubbling to prevent selecting parent elements when a child is clicked
     e.stopPropagation();
     onSelect(id);
   };
 
   switch (type) {
     case "container": {
-      const { direction = "vertical", gap = 0, padding = 20 } = props;
+      const {
+        direction = "vertical",
+        gap = 0,
+        padding = 20,
+      } = props as ContainerProps;
       return (
         <div
           data-id={id}
@@ -54,7 +56,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
             margin: "5px",
             borderRadius: "4px",
             backgroundColor: "#f7fafc",
-            ...selectionStyle, // Apply selection style
+            ...selectionStyle,
           }}
         >
           {children.length > 0 ? (
@@ -73,27 +75,43 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
       );
       }
 
-    case "text":
+    case "text": {
+      const p = props as TextProps;
+      const textStyles: React.CSSProperties = {
+        fontSize: p.fontSize ? `${p.fontSize}px` : undefined,
+        color: p.color || undefined,
+        fontWeight: p.fontWeight || undefined,
+        textAlign: p.textAlign || undefined,
+      };
       return (
         <p
           data-id={id}
           onClick={handleClick}
-          style={{ ...baseStyle, ...selectionStyle }}
+          style={{ ...baseStyle, ...textStyles, ...selectionStyle }}
         >
-          {props.text || "Default Text"}
+          {p.text || "Default Text"}
         </p>
       );
+    }
 
-    case "button":
+    case "button": {
+      const p = props as ButtonProps;
+      const btnStyles: React.CSSProperties = {
+        backgroundColor: p.backgroundColor || undefined,
+        color: p.color || undefined,
+        padding: p.padding !== undefined ? `${p.padding}px` : undefined,
+        borderRadius: p.borderRadius !== undefined ? `${p.borderRadius}px` : undefined,
+      };
       return (
         <button
           data-id={id}
           onClick={handleClick}
-          style={{ ...baseStyle, ...selectionStyle }}
+          style={{ ...baseStyle, ...btnStyles, ...selectionStyle }}
         >
-          {props.text || "Default Button"}
+          {p.text || "Default Button"}
         </button>
       );
+    }
 
     default: {
       const exhaustiveCheck: never = type;

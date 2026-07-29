@@ -1,4 +1,4 @@
-import type { UIElement } from "../../core-schema/src";
+import type { UIElement, TextProps, ButtonProps, ContainerProps } from "../../core-schema/src";
 
 const getGlobalStyles = (): string => `
   body {
@@ -24,11 +24,11 @@ const getGlobalStyles = (): string => `
   }
 `;
 
-const getElementStyles = (element: UIElement): string => {
-  let styles = "margin: 5px;"; // Common style for all elements
+function getElementStyles(element: UIElement): string {
+  let styles = "margin: 5px;";
 
   if (element.type === "container") {
-    const { direction = "vertical", gap = 0, padding = 20 } = element.props;
+    const { direction = "vertical", gap = 0, padding = 20 } = element.props as ContainerProps;
     styles += `
       display: flex;
       flex-direction: ${direction === "horizontal" ? "row" : "column"};
@@ -38,12 +38,24 @@ const getElementStyles = (element: UIElement): string => {
       border-radius: 4px;
       background-color: #f7fafc;
     `;
+  } else if (element.type === "text") {
+    const p = element.props as TextProps;
+    if (p.fontSize) styles += `font-size: ${p.fontSize}px;`;
+    if (p.color) styles += `color: ${p.color};`;
+    if (p.fontWeight) styles += `font-weight: ${p.fontWeight};`;
+    if (p.textAlign) styles += `text-align: ${p.textAlign};`;
+  } else if (element.type === "button") {
+    const p = element.props as ButtonProps;
+    if (p.backgroundColor) styles += `background-color: ${p.backgroundColor};`;
+    if (p.color) styles += `color: ${p.color};`;
+    if (p.padding !== undefined) styles += `padding: ${p.padding}px;`;
+    if (p.borderRadius !== undefined) styles += `border-radius: ${p.borderRadius}px;`;
   }
 
   return styles;
-};
+}
 
-const elementToHtml = (element: UIElement): string => {
+function elementToHtml(element: UIElement): string {
   if (!element) return "";
 
   const { type, props, children } = element;
@@ -58,15 +70,15 @@ const elementToHtml = (element: UIElement): string => {
       return `<div style="${style}">${innerHtml}</div>`;
 
     case "text":
-      return `<p style="${style}">${props.text || "Default Text"}</p>`;
+      return `<p style="${style}">${(props as TextProps).text || "Default Text"}</p>`;
 
     case "button":
-      return `<button style="${style}">${props.text || "Default Button"}</button>`;
+      return `<button style="${style}">${(props as ButtonProps).text || "Default Button"}</button>`;
 
     default:
       return "";
   }
-};
+}
 
 export const exportToHtml = (schema: UIElement): string => {
   const content = elementToHtml(schema);

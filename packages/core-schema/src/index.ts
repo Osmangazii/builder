@@ -9,10 +9,18 @@ export interface ContainerProps {
 
 export interface TextProps {
   text: string;
+  fontSize?: number;
+  color?: string;
+  fontWeight?: "normal" | "medium" | "bold";
+  textAlign?: "left" | "center" | "right";
 }
 
 export interface ButtonProps {
   text: string;
+  backgroundColor?: string;
+  color?: string;
+  padding?: number;
+  borderRadius?: number;
 }
 
 // A mapped type to associate element types with their props for better type safety

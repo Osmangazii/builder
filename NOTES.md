@@ -74,14 +74,34 @@ fs-builder, kullanıcıların sürükle-bırak editörü kullanarak tam donanım
 - **Durum**: Tamamlandı.
 - **Açıklama**: Editör arayüzü, profesyonel görsel IDE'lere ve tasarım araçlarına (Figma, VS Code vb.) benzer şekilde dört bölgeli bir grid layout'a (`index.css`, `App.css`) taşındı:
   - **Header (Üst):** Logo/Proje başlığı, Dark/Light tema değiştirme butonu ve "Export HTML" butonu.
-  - **Sol Sidebar:** Üst kısımda "Toolbox" (Container, Text, Button ekleme butonları), alt kısımda "Layers" paneli için yer tutucu (placeholder).
+  - **Sol Sidebar:** Üst kısımda "Toolbox" (Container, Text, Button ekleme butonları), alt kısımda "Layers" paneli.
   - **Merkez Canvas (Önizleme):** Kullanıcının oluşturduğu web sayfasının önizlemesini gösteren, izole edilmiş bir alan. `ElementRenderer` bileşeni burada render edilir.
   - **Sağ Sidebar:** Seçili elemanın özelliklerini düzenlemek için `PropertiesPanel` bileşeni.
 - CSS Variables (`--bg-main`, `--bg-sidebar`, `--border-color`, `--text-main`, `--accent-color`, vb.) kullanılarak Dark (varsayılan, Catppuccin Mocha benzeri profesyonel görünüm) ve Light olmak üzere iki temalı bir sistem entegre edildi. Tema, header'daki bir buton ile anlık olarak değiştirilebilir.
 - **Kritik Kazanım:** Merkez Canvas/Önizleme alanı, tema sisteminden tamamen izole edildi. Canvas zemini (`--canvas-bg`) ve yüzeyi (`--canvas-surface`) temadan bağımsız sabit renkler kullanır. Bu sayede editör teması değiştiğinde kullanıcının oluşturduğu web sayfasının stilleri (inline style) hiçbir şekilde etkilenmez veya bozulmaz.
 - Tüm mevcut state yönetimi, eleman seçimi, iç içe konteyner mantığı ve HTML dışa aktarma özellikleri korundu.
 
+### Adım 16: İnteraktif Katmanlar Paneli (DOM Ağacı Görünümü)
+- **Durum**: Tamamlandı.
+- **Açıklama**: Sol sidebar'da bulunan "Layers" alanı, statik bir placeholder olmaktan çıkarılarak tamamen işlevsel, interaktif bir DOM ağacı görünümüne dönüştürüldü:
+  - **Rekürsif Ağaç Yapısı:** Tüm şema hiyerarşisi, her bir elemanın türüne göre görsel simgeler ve girintilerle birlikte rekürsif olarak listelenir. Kapsayıcı (container) elemanlar, alt öğelerini gizleyip gösterebilmek için genişletme/daraltma (expand/collapse) kontrollerine sahiptir.
+  - **Çift Yönlü Seçim Senkronizasyonu:** Kanvas üzerinde bir elemana tıklandığında, katmanlar panelinde ilgili satır otomatik olarak vurgulanır ve görünür hale getirilir (scroll into view). Tersi de geçerlidir: Katmanlar panelinde bir satıra tıklandığında, kanvas üzerinde o eleman seçilir ve özellikler paneli güncellenir.
+  - **Tip Göstergeleri:** Container, Text ve Button türleri, sol taraflarında farklı simgelerle (📦, 𝜲, 🔘) işaretlenmiştir. Bu sayede kullanıcı ağaçta gezinirken her bir öğenin türünü anında ayırt edebilir.
+  - **Tema Uyumu:** Tüm katman paneli stilleri, CSS değişkenlerini (`--bg-hover`, `--bg-active`, `--text-main`, `--text-dim`, `--accent-color`, vb.) kullanarak hem Dark hem de Light temalarda tutarlı ve okunabilir bir görünüm sunar.
+
+### Adım 17: Gelişmiş Text ve Button Özellikleri (Properties System)
+- **Durum**: Tamamlandı.
+- **Açıklama**: Text ve Button elemanları için özellik düzenleme sistemi kapsamlı bir şekilde genişletildi:
+  - **Şema Genişletmesi (`core-schema`):** `TextProps` ve `ButtonProps` arayüzlerine yeni stil ve içerik özellikleri eklendi.
+  - **Text Özellikleri:** İçerik metni (text input), font boyutu (`fontSize`, px), metin rengi (`color`, hex color picker), font ağırlığı (`fontWeight`: Normal/Medium/Bold) ve metin hizalama (`textAlign`: Left/Center/Right) için kontroller eklendi.
+  - **Button Özellikleri:** Buton etiketi (text input), arka plan rengi (`backgroundColor`, hex color picker), metin rengi (`color`, hex color picker), iç dolgu (`padding`, px) ve köşe yuvarlaklığı (`borderRadius`, px) için kontroller eklendi.
+  - **Editör Önizleme Entegrasyonu (`ElementRenderer`):** Tüm yeni özellikler, React inline style olarak dinamik şekilde render edilir. Kullanıcı panelde bir değeri değiştirdiğinde sonuç anında kanvas üzerinde görünür.
+  - **HTML Dışa Aktarma Entegrasyonu (`exporters/html.ts`):** Dışa aktarma motoru, text ve button elemanları için yeni stil özelliklerini okuyacak ve oluşturulan HTML çıktısına inline style olarak ekleyecek şekilde güncellendi.
+  - **Yeniden Kullanılabilir UI Helper'lar:** PropertiesPanel içinde `TextField`, `NumberField`, `ColorField` ve `SelectField` gibi yardımcı bileşenler tanımlanarak panel kodunun okunabilirliği ve bakımı kolaylaştırıldı.
+  - Color picker alanı için özel CSS stilleri (`prop-color-row`, `prop-color-picker`, `prop-color-hex`) eklendi; hem renk seçici hem de hex metin girişi yan yana çalışır.
+  - Mevcut container özellikleri, layout yapısı, katman paneli, tema sistemi ve tüm state mantığı korundu.
+
 ---
 
 ## Mevcut Hedef
-- Sıradaki adımı bekliyor. Bir sonraki özellik tanımı ile projeye devam edilebilir.
+- Sıradaki adımı bekliyor. Editörün temel stil yetenekleri artık sağlam bir temele oturmuştur. Bir sonraki aşamada gerçek zamanlı kod önizlemesi (Real-time Code Preview) ve Gelişmiş HTML/CSS/JS Dışa Aktarma motoru (Advanced Export Engine) gibi yeni yetenekler eklenebilir.

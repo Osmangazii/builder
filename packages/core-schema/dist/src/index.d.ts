@@ -6,9 +6,17 @@ export interface ContainerProps {
 }
 export interface TextProps {
     text: string;
+    fontSize?: number;
+    color?: string;
+    fontWeight?: "normal" | "medium" | "bold";
+    textAlign?: "left" | "center" | "right";
 }
 export interface ButtonProps {
     text: string;
+    backgroundColor?: string;
+    color?: string;
+    padding?: number;
+    borderRadius?: number;
 }
 export type ElementProps = {
     container: ContainerProps;

@@ -15,12 +15,90 @@ interface PropertiesPanelProps {
   onDelete: (elementId: string) => void;
 }
 
+const PROP_GROUP_MARGIN = { marginTop: "14px" as const };
+
+// ── Reusable field helpers ─────────────────────────────────────
+
+function TextField({ id, label, value, onChange }: {
+  id: string; label: string; value: string; onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label htmlFor={id}>{label}</label>
+      <input id={id} type="text" value={value} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+function NumberField({ id, label, value, min, onChange }: {
+  id: string; label: string; value: number | undefined; min?: number; onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <label htmlFor={id}>{label}</label>
+      <input
+        id={id}
+        type="number"
+        min={min ?? 0}
+        value={value ?? ""}
+        onChange={(e) => onChange(parseInt(e.target.value, 10) || 0)}
+      />
+    </div>
+  );
+}
+
+function ColorField({ id, label, value, onChange }: {
+  id: string; label: string; value: string | undefined; onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label htmlFor={id}>{label}</label>
+      <div className="prop-color-row">
+        <input
+          id={id}
+          type="color"
+          className="prop-color-picker"
+          value={value || "#000000"}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <input
+          type="text"
+          className="prop-color-hex"
+          value={value || ""}
+          placeholder="#000000"
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SelectField({ id, label, value, options, onChange }: {
+  id: string; label: string; value: string | undefined; options: { value: string; label: string }[]; onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label htmlFor={id}>{label}</label>
+      <select
+        id={id}
+        value={value || options[0]?.value || ""}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+// ── Panel component ────────────────────────────────────────────
+
 export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   selectedElement,
   onUpdate,
   onDelete,
 }) => {
-  // If no element is selected, don't render the panel
   if (!selectedElement) {
     return (
       <div className="properties-panel-wrapper">
@@ -33,76 +111,133 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
   const renderPanelContent = () => {
     switch (type) {
-      case "text":
+      // ── Text ────────────────────────────────────────────────
+      case "text": {
+        const p = props as TextProps;
         return (
           <div>
-            <label htmlFor="text-content">Content</label>
-            <input
-              id="text-content"
-              type="text"
-              value={(props as TextProps).text}
-              onChange={(e) => onUpdate(id, { text: e.target.value })}
+            <TextField
+              id="text-content" label="Content"
+              value={p.text} onChange={(v) => onUpdate(id, { text: v })}
             />
+            <div style={PROP_GROUP_MARGIN}>
+              <NumberField
+                id="text-font-size" label="Font Size (px)"
+                value={p.fontSize} min={8}
+                onChange={(v) => onUpdate(id, { fontSize: v })}
+              />
+            </div>
+            <div style={PROP_GROUP_MARGIN}>
+              <ColorField
+                id="text-color" label="Text Color"
+                value={p.color}
+                onChange={(v) => onUpdate(id, { color: v || undefined })}
+              />
+            </div>
+            <div style={PROP_GROUP_MARGIN}>
+              <SelectField
+                id="text-font-weight" label="Font Weight"
+                value={p.fontWeight}
+                options={[
+                  { value: "normal", label: "Normal" },
+                  { value: "medium", label: "Medium" },
+                  { value: "bold", label: "Bold" },
+                ]}
+                onChange={(v) => onUpdate(id, { fontWeight: v as "normal" | "medium" | "bold" })}
+              />
+            </div>
+            <div style={PROP_GROUP_MARGIN}>
+              <SelectField
+                id="text-align" label="Text Align"
+                value={p.textAlign}
+                options={[
+                  { value: "left", label: "Left" },
+                  { value: "center", label: "Center" },
+                  { value: "right", label: "Right" },
+                ]}
+                onChange={(v) => onUpdate(id, { textAlign: v as "left" | "center" | "right" })}
+              />
+            </div>
           </div>
         );
+      }
 
-      case "button":
+      // ── Button ──────────────────────────────────────────────
+      case "button": {
+        const p = props as ButtonProps;
         return (
           <div>
-            <label htmlFor="button-label">Label</label>
-            <input
-              id="button-label"
-              type="text"
-              value={(props as ButtonProps).text}
-              onChange={(e) => onUpdate(id, { text: e.target.value })}
+            <TextField
+              id="button-label" label="Label"
+              value={p.text} onChange={(v) => onUpdate(id, { text: v })}
             />
+            <div style={PROP_GROUP_MARGIN}>
+              <ColorField
+                id="button-bg" label="Background Color"
+                value={p.backgroundColor}
+                onChange={(v) => onUpdate(id, { backgroundColor: v || undefined })}
+              />
+            </div>
+            <div style={PROP_GROUP_MARGIN}>
+              <ColorField
+                id="button-color" label="Text Color"
+                value={p.color}
+                onChange={(v) => onUpdate(id, { color: v || undefined })}
+              />
+            </div>
+            <div style={PROP_GROUP_MARGIN}>
+              <NumberField
+                id="button-padding" label="Padding (px)"
+                value={p.padding} min={0}
+                onChange={(v) => onUpdate(id, { padding: v })}
+              />
+            </div>
+            <div style={PROP_GROUP_MARGIN}>
+              <NumberField
+                id="button-border-radius" label="Border Radius (px)"
+                value={p.borderRadius} min={0}
+                onChange={(v) => onUpdate(id, { borderRadius: v })}
+              />
+            </div>
           </div>
         );
+      }
 
+      // ── Container ───────────────────────────────────────────
       case "container": {
-        const containerProps = props as ContainerProps;
+        const p = props as ContainerProps;
         return (
           <div>
             <div>
               <label htmlFor="container-direction">Direction</label>
               <select
                 id="container-direction"
-                value={containerProps.direction || "vertical"}
+                value={p.direction || "vertical"}
                 onChange={(e) =>
-                  onUpdate(id, {
-                    direction: e.target.value as "vertical" | "horizontal",
-                  })
+                  onUpdate(id, { direction: e.target.value as "vertical" | "horizontal" })
                 }
               >
                 <option value="vertical">Vertical</option>
                 <option value="horizontal">Horizontal</option>
               </select>
             </div>
-            <div style={{ marginTop: "12px" }}>
-              <label htmlFor="container-gap">Gap (px)</label>
-              <input
-                id="container-gap"
-                type="number"
-                value={containerProps.gap ?? 0}
-                onChange={(e) =>
-                  onUpdate(id, { gap: parseInt(e.target.value, 10) || 0 })
-                }
+            <div style={PROP_GROUP_MARGIN}>
+              <NumberField
+                id="container-gap" label="Gap (px)"
+                value={p.gap ?? 0}
+                onChange={(v) => onUpdate(id, { gap: v })}
               />
             </div>
-            <div style={{ marginTop: "12px" }}>
-              <label htmlFor="container-padding">Padding (px)</label>
-              <input
-                id="container-padding"
-                type="number"
-                value={containerProps.padding ?? 20}
-                onChange={(e) =>
-                  onUpdate(id, { padding: parseInt(e.target.value, 10) || 0 })
-                }
+            <div style={PROP_GROUP_MARGIN}>
+              <NumberField
+                id="container-padding" label="Padding (px)"
+                value={p.padding ?? 20}
+                onChange={(v) => onUpdate(id, { padding: v })}
               />
             </div>
           </div>
         );
-        }
+      }
 
       default:
         return <p style={{ color: "var(--text-dim)" }}>This element type has no editable properties.</p>;
