@@ -5,6 +5,7 @@ import "./App.css";
 import { ElementRenderer } from "./components/ElementRenderer";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import { LayersPanel } from "./components/LayersPanel";
+import { CodePanel } from "./components/CodePanel";
 
 const initialSchema: UIElement = {
   id: "root-container",
@@ -226,13 +227,10 @@ function App() {
     const pasted = deepCloneWithNewIds(clipboardElement);
     const selected = selectedElementId ? findElementById(schema, selectedElementId) : null;
     if (selected && selected.type === "container") {
-      // Paste as child of selected container
       setSchema((prev) => addElementRecursive(prev, selected.id, pasted));
     } else if (selectedElementId) {
-      // Paste as sibling after selected element
       setSchema((prev) => addSiblingInTree(prev, selectedElementId, pasted));
     } else {
-      // Paste into root
       setSchema((prev) => addElementRecursive(prev, schema.id, pasted));
     }
     setSelectedElementId(pasted.id);
@@ -298,7 +296,6 @@ function App() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const effectiveTool: Tool = isSpaceHeld ? "hand" : activeTool;
 
-  // Space key → hand tool
   useEffect(() => {
     const down = (e: KeyboardEvent) => { if (e.code === "Space" && !e.repeat) { e.preventDefault(); setIsSpaceHeld(true); } };
     const up = (e: KeyboardEvent) => { if (e.code === "Space") { e.preventDefault(); setIsSpaceHeld(false); setIsPanning(false); } };
@@ -306,32 +303,18 @@ function App() {
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
   }, []);
 
-  // ── Global keyboard shortcuts (Copy / Paste / Duplicate / Delete) ──
+  // ── Keyboard shortcuts ────────────────────────────────────────
 
   useEffect(() => {
     const isInput = () => ["input", "textarea", "select"].includes(document.activeElement?.tagName?.toLowerCase() ?? "");
-
     const handler = (e: KeyboardEvent) => {
       if (isInput()) return;
       const mod = e.metaKey || e.ctrlKey;
-
-      if (mod && e.key === "c") {
-        e.preventDefault();
-        handleCopyElement();
-      } else if (mod && e.key === "v") {
-        e.preventDefault();
-        handlePasteElement();
-      } else if (mod && e.key === "d") {
-        e.preventDefault();
-        if (selectedElementId && selectedElementId !== schema.id) {
-          handleDuplicateElement(selectedElementId);
-        }
-      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedElementId && selectedElementId !== schema.id) {
-        e.preventDefault();
-        removeElement(selectedElementId);
-      }
+      if (mod && e.key === "c") { e.preventDefault(); handleCopyElement(); }
+      else if (mod && e.key === "v") { e.preventDefault(); handlePasteElement(); }
+      else if (mod && e.key === "d") { e.preventDefault(); if (selectedElementId && selectedElementId !== schema.id) handleDuplicateElement(selectedElementId); }
+      else if ((e.key === "Delete" || e.key === "Backspace") && selectedElementId && selectedElementId !== schema.id) { e.preventDefault(); removeElement(selectedElementId); }
     };
-
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [handleCopyElement, handlePasteElement, handleDuplicateElement, selectedElementId, schema.id]);
@@ -345,9 +328,7 @@ function App() {
   }, [effectiveTool, panOffset]);
 
   const handleCanvasMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isPanning && effectiveTool === "hand") {
-      setPanOffset({ x: e.clientX - panStart.current.x, y: e.clientY - panStart.current.y });
-    }
+    if (isPanning && effectiveTool === "hand") setPanOffset({ x: e.clientX - panStart.current.x, y: e.clientY - panStart.current.y });
   }, [effectiveTool, isPanning]);
 
   const handleCanvasMouseUp = useCallback(() => setIsPanning(false), []);
@@ -398,44 +379,46 @@ function App() {
         </div>
       </aside>
 
-      <main
-        className={`editor-canvas${effectiveTool === "hand" ? " editor-canvas--hand" : ""}${isPanning ? " editor-canvas--grabbing" : ""}`}
+      <main className="editor-canvas"
         ref={canvasRef} onClick={handleCanvasClick}
         onMouseDown={handleCanvasMouseDown} onMouseMove={handleCanvasMouseMove}
         onMouseUp={handleCanvasMouseUp} onMouseLeave={handleCanvasMouseUp}
       >
-        <div className="canvas-grid">
-          <div className="canvas-transform-layer" style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})` }}>
-            <div className="canvas-paper">
-              <ElementRenderer
-                element={schema} selectedElementId={selectedElementId} onSelect={handleSelectElement}
-                onQuickAdd={handleQuickAdd} onDuplicate={handleDuplicateElement} onDelete={removeElement}
-              />
+        <div className="editor-canvas__viewport">
+          <div className="canvas-grid">
+            <div className="canvas-transform-layer" style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})` }}>
+              <div className="canvas-paper">
+                <ElementRenderer
+                  element={schema} selectedElementId={selectedElementId} onSelect={handleSelectElement}
+                  onQuickAdd={handleQuickAdd} onDuplicate={handleDuplicateElement} onDelete={removeElement}
+                />
+              </div>
             </div>
           </div>
-        </div>
-        <div className="canvas-dock">
-          <div className="canvas-dock__group">
-            <button className={`canvas-dock__btn${activeTool === "select" ? " canvas-dock__btn--active" : ""}`}
-              onClick={() => setActiveTool("select")} title="Select Tool">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 1.5L12.5 9.5L8.5 10.5L6.5 14L4.5 12L2 14L3 1.5Z" fill="currentColor"/></svg>
-            </button>
-            <button className={`canvas-dock__btn${activeTool === "hand" ? " canvas-dock__btn--active" : ""}`}
-              onClick={() => setActiveTool("hand")} title="Hand Tool (hold Space)">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5.5 2.5V7.5M5.5 2.5C5.5 1.5 6 1 6.5 1C7 1 7.5 1.5 7.5 2.5V4M5.5 2.5C5.5 1.5 5 1 4.5 1C4 1 3.5 1.5 3.5 2.5V7M7.5 4V2.5M7.5 4C7.5 3 8 2.5 8.5 2.5C9 2.5 9.5 3 9.5 4V8.5L11 6.5C11.5 5.5 12.5 5.5 13 6C13.5 6.5 13.5 7.5 13 8.5L10 13C9.5 14 8.5 15 7 15H4C2.5 15 2 13.5 2 12V9.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
+          <div className="canvas-dock">
+            <div className="canvas-dock__group">
+              <button className={`canvas-dock__btn${activeTool === "select" ? " canvas-dock__btn--active" : ""}`}
+                onClick={() => setActiveTool("select")} title="Select Tool">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 1.5L12.5 9.5L8.5 10.5L6.5 14L4.5 12L2 14L3 1.5Z" fill="currentColor"/></svg>
+              </button>
+              <button className={`canvas-dock__btn${activeTool === "hand" ? " canvas-dock__btn--active" : ""}`}
+                onClick={() => setActiveTool("hand")} title="Hand Tool (hold Space)">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5.5 2.5V7.5M5.5 2.5C5.5 1.5 6 1 6.5 1C7 1 7.5 1.5 7.5 2.5V4M5.5 2.5C5.5 1.5 5 1 4.5 1C4 1 3.5 1.5 3.5 2.5V7M7.5 4V2.5M7.5 4C7.5 3 8 2.5 8.5 2.5C9 2.5 9.5 3 9.5 4V8.5L11 6.5C11.5 5.5 12.5 5.5 13 6C13.5 6.5 13.5 7.5 13 8.5L10 13C9.5 14 8.5 15 7 15H4C2.5 15 2 13.5 2 12V9.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
+              </button>
+            </div>
+            <div className="canvas-dock__divider" />
+            <div className="canvas-dock__group">
+              <button className="canvas-dock__btn" onClick={handleZoomOut} title="Zoom Out">−</button>
+              <span className="canvas-dock__label">{Math.round(zoom * 100)}%</span>
+              <button className="canvas-dock__btn" onClick={handleZoomIn} title="Zoom In">+</button>
+            </div>
+            <div className="canvas-dock__divider" />
+            <button className="canvas-dock__btn" onClick={handleZoomReset} title="Reset Zoom">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2"/><path d="M7 4V7L9 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
             </button>
           </div>
-          <div className="canvas-dock__divider" />
-          <div className="canvas-dock__group">
-            <button className="canvas-dock__btn" onClick={handleZoomOut} title="Zoom Out">−</button>
-            <span className="canvas-dock__label">{Math.round(zoom * 100)}%</span>
-            <button className="canvas-dock__btn" onClick={handleZoomIn} title="Zoom In">+</button>
-          </div>
-          <div className="canvas-dock__divider" />
-          <button className="canvas-dock__btn" onClick={handleZoomReset} title="Reset Zoom">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2"/><path d="M7 4V7L9 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
-          </button>
         </div>
+        <CodePanel schema={schema} />
       </main>
 
       <aside className="editor-right-sidebar">

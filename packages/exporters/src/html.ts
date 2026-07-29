@@ -41,7 +41,7 @@ function appendBaseStyles(styles: string, p: BaseStyleProps): string {
 }
 
 function getElementStyles(element: UIElement): string {
-  let styles = "margin: 5px;";
+  let styles = "";
 
   if (element.type === "container") {
     const p = element.props as ContainerProps;
@@ -51,11 +51,11 @@ function getElementStyles(element: UIElement): string {
     styles += `display: ${display};`;
     if (display === "flex") {
       styles += `flex-direction: ${direction === "horizontal" ? "row" : "column"};`;
-      styles += `gap: ${gap}px;`;
+      if (gap > 0) styles += `gap: ${gap}px;`;
       styles += `justify-content: ${p.justifyContent || "flex-start"};`;
       styles += `align-items: ${p.alignItems || "stretch"};`;
     }
-    styles += `padding: ${padding}px;`;
+    if (padding > 0) styles += `padding: ${padding}px;`;
     styles += `border: 1px solid #e2e8f0;`;
     styles += `border-radius: 4px;`;
     styles += `background-color: #f7fafc;`;
@@ -71,7 +71,7 @@ function getElementStyles(element: UIElement): string {
   } else if (element.type === "button") {
     const p = element.props as ButtonProps;
     if (p.color) styles += `color: ${p.color};`;
-    if (p.padding !== undefined) styles += `padding: ${p.padding}px;`;
+    if (p.padding !== undefined && p.padding > 0) styles += `padding: ${p.padding}px;`;
     styles = appendBaseStyles(styles, p as BaseStyleProps);
   }
 
@@ -83,6 +83,7 @@ function elementToHtml(element: UIElement): string {
 
   const { type, props, children } = element;
   const style = getElementStyles(element);
+  const styleAttr = style ? ` style="${style}"` : "";
 
   switch (type) {
     case "container":
@@ -90,13 +91,13 @@ function elementToHtml(element: UIElement): string {
         children.length > 0
           ? children.map(elementToHtml).join("")
           : '<div style="min-height: 20px; background-color: #f0f0f0;"></div>';
-      return `<div style="${style}">${innerHtml}</div>`;
+      return `<div${styleAttr}>${innerHtml}</div>`;
 
     case "text":
-      return `<p style="${style}">${(props as TextProps).text || "Default Text"}</p>`;
+      return `<p${styleAttr}>${(props as TextProps).text || "Default Text"}</p>`;
 
     case "button":
-      return `<button style="${style}">${(props as ButtonProps).text || "Default Button"}</button>`;
+      return `<button${styleAttr}>${(props as ButtonProps).text || "Default Button"}</button>`;
 
     default:
       return "";
@@ -107,20 +108,18 @@ export const exportToHtml = (schema: UIElement): string => {
   const content = elementToHtml(schema);
   const globalStyles = getGlobalStyles();
 
-  return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Exported Page</title>
-      <style>
-        ${globalStyles}
-      </style>
-    </head>
-    <body>
-      ${content}
-    </body>
-    </html>
-  `;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exported Page</title>
+  <style>
+    ${globalStyles.trim()}
+  </style>
+</head>
+<body>
+  ${content}
+</body>
+</html>`;
 };
