@@ -1,39 +1,39 @@
 /* ================================================================
    THEME SYSTEM — CSS Variables
-   Dark theme is the default (professional dev-tool aesthetic).
+   Dark theme is the default (True Black / Neutral Gray palette).
    Light theme only affects the editor UI chrome; the canvas/preview
    area stays visually isolated.
    ================================================================ */
 
 :root {
-  /* ── Dark Theme (default) ────────────────────────────────────── */
-  --bg-header: #11111b;
-  --bg-main: #1e1e2e;
-  --bg-sidebar: #181825;
-  --bg-surface: #242438;
-  --bg-hover: #2a2a3c;
-  --bg-active: #313244;
+  /* ── Dark Theme (default) — True Black / Neutral UI ───────── */
+  --bg-header: #0a0a0a;
+  --bg-main: #09090b;
+  --bg-sidebar: #0a0a0a;
+  --bg-surface: #121215;
+  --bg-hover: #1a1a1e;
+  --bg-active: #27272a;
 
-  --border-color: #313244;
-  --border-light: #45475a;
+  --border-color: #1f1f23;
+  --border-light: #27272a;
 
-  --text-main: #cdd6f4;
-  --text-muted: #6c7086;
-  --text-dim: #45475a;
-  --text-inverse: #1e1e2e;
+  --text-main: #f4f4f5;
+  --text-muted: #a1a1aa;
+  --text-dim: #52525b;
+  --text-inverse: #09090b;
 
-  --accent-color: #89b4fa;
-  --accent-hover: #74c7ec;
-  --danger-color: #f38ba8;
-  --danger-hover: #e64553;
+  --accent-color: #3b82f6;
+  --accent-hover: #2563eb;
+  --danger-color: #ef4444;
+  --danger-hover: #dc2626;
 
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
 
   /* ── Canvas / Preview (theme-independent) ──────────────────── */
-  --canvas-bg: #e2e8f0;
+  --canvas-bg: #d4d4d8;
   --canvas-surface: #ffffff;
-  --canvas-border: #cbd5e1;
+  --canvas-border: #a1a1aa;
 }
 
 /* ── Light Theme Overrides (editor chrome only) ─────────────── */

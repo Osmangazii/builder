@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { UIElement, ElementType } from "@fs-builder/core-schema";
-import { exportToHtml } from "@fs-builder/exporters";
+import { exportToHtml, generateClassExport } from "@fs-builder/exporters";
+import JSZip from "jszip";
 import "./App.css";
 import { ElementRenderer } from "./components/ElementRenderer";
 import { PropertiesPanel } from "./components/PropertiesPanel";
@@ -8,283 +9,126 @@ import { LayersPanel } from "./components/LayersPanel";
 import { CodePanel } from "./components/CodePanel";
 
 const initialSchema: UIElement = {
-  id: "root-container",
-  type: "container",
-  props: {},
+  id: "root-container", type: "container", props: {},
   children: [
     { id: "text-1", type: "text", props: { text: "Welcome to the Visual Builder" }, children: [] },
-    {
-      id: "main-content", type: "container", props: {},
+    { id: "main-content", type: "container", props: {},
       children: [{ id: "button-1", type: "button", props: { text: "Click me!" }, children: [] }],
     },
   ],
 };
 
-// =================================================================
-// HELPERS
-// =================================================================
+const generateId = (type: ElementType) => `${type}-${Math.random().toString(36).substr(2, 9)}`;
 
-const generateId = (type: ElementType) =>
-  `${type}-${Math.random().toString(36).substr(2, 9)}`;
-
-function countElements(element: UIElement): number {
-  let count = 1;
-  if ("children" in element && element.children.length > 0) {
-    for (const child of element.children) count += countElements(child);
-  }
-  return count;
+function countElements(e: UIElement): number {
+  let c = 1; if ("children" in e && e.children.length > 0) for (const ch of e.children) c += countElements(ch); return c;
 }
-
-function findElementById(element: UIElement, id: string): UIElement | null {
-  if (element.id === id) return element;
-  if ("children" in element && element.children) {
-    for (const child of element.children) {
-      const found = findElementById(child, id);
-      if (found) return found;
-    }
-  }
-  return null;
+function findById(e: UIElement, id: string): UIElement | null {
+  if (e.id === id) return e; if ("children" in e && e.children) for (const c of e.children) { const f = findById(c, id); if (f) return f; } return null;
 }
-
-function addElementRecursive(
-  currentElement: UIElement, parentId: string, newElement: UIElement,
-): UIElement {
-  if (currentElement.id === parentId) {
-    if (currentElement.type !== "container") return currentElement;
-    return { ...currentElement, children: [...currentElement.children, newElement] } as UIElement;
-  }
-  if ("children" in currentElement && currentElement.children.length > 0) {
-    return {
-      ...currentElement,
-      children: currentElement.children.map((child) => addElementRecursive(child, parentId, newElement)),
-    } as UIElement;
-  }
-  return currentElement;
+function addRec(e: UIElement, pid: string, ne: UIElement): UIElement {
+  if (e.id === pid) { if (e.type !== "container") return e; return { ...e, children: [...e.children, ne] } as UIElement; }
+  if ("children" in e && e.children.length > 0) return { ...e, children: e.children.map((c) => addRec(c, pid, ne)) } as UIElement; return e;
 }
-
-function updateElementRecursive(
-  currentElement: UIElement, elementId: string, newProps: Partial<UIElement["props"]>,
-): UIElement {
-  if (currentElement.id === elementId) {
-    return { ...currentElement, props: { ...currentElement.props, ...newProps } } as UIElement;
-  }
-  if ("children" in currentElement && currentElement.children.length > 0) {
-    return {
-      ...currentElement,
-      children: currentElement.children.map((child) => updateElementRecursive(child, elementId, newProps)),
-    } as UIElement;
-  }
-  return currentElement;
+function updRec(e: UIElement, id: string, p: Partial<UIElement["props"]>): UIElement {
+  if (e.id === id) return { ...e, props: { ...e.props, ...p } } as UIElement;
+  if ("children" in e && e.children.length > 0) return { ...e, children: e.children.map((c) => updRec(c, id, p)) } as UIElement; return e;
 }
-
-function removeElementRecursive(currentElement: UIElement, elementId: string): UIElement | null {
-  if (currentElement.id === elementId) return null;
-  if ("children" in currentElement && currentElement.children.length > 0) {
-    return {
-      ...currentElement,
-      children: currentElement.children
-        .map((child) => removeElementRecursive(child, elementId))
-        .filter((child): child is UIElement => child !== null),
-    } as UIElement;
-  }
-  return currentElement;
+function remRec(e: UIElement, id: string): UIElement | null {
+  if (e.id === id) return null; if ("children" in e && e.children.length > 0) return { ...e, children: e.children.map((c) => remRec(c, id)).filter(Boolean) } as UIElement; return e;
 }
-
-// ── Move helpers ────────────────────────────────────────────────
-
-function findElementParent(element: UIElement, id: string): { parentId: string; index: number } | null {
-  if ("children" in element) {
-    for (let i = 0; i < element.children.length; i++) {
-      if (element.children[i].id === id) return { parentId: element.id, index: i };
-      const found = findElementParent(element.children[i], id);
-      if (found) return found;
-    }
-  }
-  return null;
+function findParent(e: UIElement, id: string): { parentId: string; index: number } | null {
+  if ("children" in e) for (let i = 0; i < e.children.length; i++) {
+    if (e.children[i].id === id) return { parentId: e.id, index: i };
+    const f = findParent(e.children[i], id); if (f) return f;
+  } return null;
 }
-
-function isDescendant(element: UIElement, id: string): boolean {
-  if (element.id === id) return true;
-  if ("children" in element) return element.children.some((child) => isDescendant(child, id));
-  return false;
+function isDesc(e: UIElement, id: string): boolean { if (e.id === id) return true; if ("children" in e) return e.children.some((c) => isDesc(c, id)); return false; }
+function extractEl(e: UIElement, sid: string): { newTree: UIElement; removed: UIElement } | null {
+  if ("children" in e) for (let i = 0; i < e.children.length; i++) {
+    if (e.children[i].id === sid) { const r = e.children[i]; const nc = [...e.children]; nc.splice(i, 1); return { newTree: { ...e, children: nc } as UIElement, removed: r }; }
+    const r = extractEl(e.children[i], sid); if (r) { const nc = [...e.children]; nc[i] = r.newTree; return { newTree: { ...e, children: nc } as UIElement, removed: r.removed }; }
+  } return null;
 }
-
-function extractElement(element: UIElement, sourceId: string): { newTree: UIElement; removed: UIElement } | null {
-  if ("children" in element) {
-    for (let i = 0; i < element.children.length; i++) {
-      if (element.children[i].id === sourceId) {
-        const removed = element.children[i];
-        const newChildren = [...element.children];
-        newChildren.splice(i, 1);
-        return { newTree: { ...element, children: newChildren } as UIElement, removed };
-      }
-      const result = extractElement(element.children[i], sourceId);
-      if (result) {
-        const newChildren = [...element.children];
-        newChildren[i] = result.newTree;
-        return { newTree: { ...element, children: newChildren } as UIElement, removed: result.removed };
-      }
-    }
-  }
-  return null;
+function insAt(e: UIElement, ins: UIElement, pid: string, idx: number): UIElement {
+  if (e.id === pid) { if (e.type !== "container") return e; const c = [...e.children]; c.splice(Math.min(idx, c.length), 0, ins); return { ...e, children: c } as UIElement; }
+  if ("children" in e && e.children.length > 0) return { ...e, children: e.children.map((ch) => insAt(ch, ins, pid, idx)) } as UIElement; return e;
 }
-
-function insertElementAt(
-  currentElement: UIElement, elementToInsert: UIElement, parentId: string, index: number,
-): UIElement {
-  if (currentElement.id === parentId) {
-    if (currentElement.type !== "container") return currentElement;
-    const children = [...currentElement.children];
-    children.splice(Math.min(index, children.length), 0, elementToInsert);
-    return { ...currentElement, children } as UIElement;
-  }
-  if ("children" in currentElement && currentElement.children.length > 0) {
-    return {
-      ...currentElement,
-      children: currentElement.children.map((child) => insertElementAt(child, elementToInsert, parentId, index)),
-    } as UIElement;
-  }
-  return currentElement;
+function moveTree(tree: UIElement, sid: string, tpid: string, tidx: number): UIElement {
+  const si = findParent(tree, sid); if (!si) return tree; const ex = extractEl(tree, sid); if (!ex) return tree;
+  let ai = tidx; if (si.parentId === tpid && si.index < tidx) ai = Math.max(0, tidx - 1); return insAt(ex.newTree, ex.removed, tpid, ai);
 }
-
-function moveElementInTree(tree: UIElement, sourceId: string, targetParentId: string, targetIndex: number): UIElement {
-  const sourceInfo = findElementParent(tree, sourceId);
-  if (!sourceInfo) return tree;
-  const extracted = extractElement(tree, sourceId);
-  if (!extracted) return tree;
-  let adjustedIndex = targetIndex;
-  if (sourceInfo.parentId === targetParentId && sourceInfo.index < targetIndex) adjustedIndex = Math.max(0, targetIndex - 1);
-  return insertElementAt(extracted.newTree, extracted.removed, targetParentId, adjustedIndex);
+function deepClone(e: UIElement): UIElement {
+  const id = generateId(e.type); const nc = "children" in e ? e.children.map(deepClone) : []; return { ...e, id, children: nc } as UIElement;
 }
-
-// ── Duplicate helper ────────────────────────────────────────────
-
-function deepCloneWithNewIds(element: UIElement): UIElement {
-  const newId = generateId(element.type);
-  const newChildren = "children" in element ? element.children.map(deepCloneWithNewIds) : [];
-  return { ...element, id: newId, children: newChildren } as UIElement;
+function dupTree(tree: UIElement, eid: string): UIElement {
+  const info = findParent(tree, eid); if (!info) return tree; const el = findById(tree, eid); if (!el) return tree; return insAt(tree, deepClone(el), info.parentId, info.index + 1);
 }
-
-function duplicateElementInTree(tree: UIElement, elementId: string): UIElement {
-  const info = findElementParent(tree, elementId);
-  if (!info) return tree;
-  const element = findElementById(tree, elementId);
-  if (!element) return tree;
-  return insertElementAt(tree, deepCloneWithNewIds(element), info.parentId, info.index + 1);
+function addSib(tree: UIElement, sid: string, ne: UIElement): UIElement {
+  const info = findParent(tree, sid); if (!info) return tree; return insAt(tree, ne, info.parentId, info.index + 1);
 }
-
-function addSiblingInTree(tree: UIElement, siblingId: string, newElement: UIElement): UIElement {
-  const info = findElementParent(tree, siblingId);
-  if (!info) return tree;
-  return insertElementAt(tree, newElement, info.parentId, info.index + 1);
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  APP
-// ═══════════════════════════════════════════════════════════════
 
 function App() {
   const [schema, setSchema] = useState<UIElement>(initialSchema);
-  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
-  const [clipboardElement, setClipboardElement] = useState<UIElement | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [clipboard, setClipboard] = useState<UIElement | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
-  const addElement = (parentId: string, newElement: UIElement) => {
-    setSchema((prev) => addElementRecursive(prev, parentId, newElement));
-  };
+  const addEl = (pid: string, ne: UIElement) => setSchema((p) => addRec(p, pid, ne));
+  const updEl = (id: string, p: Partial<UIElement["props"]>) => setSchema((prev) => updRec(prev, id, p));
+  const remEl = (id: string) => { if (schema.id === id) return; setSchema((prev) => remRec(prev, id) ?? prev); setSelectedId(null); };
 
-  const updateElement = (elementId: string, newProps: Partial<UIElement["props"]>) => {
-    setSchema((prev) => updateElementRecursive(prev, elementId, newProps));
-  };
-
-  const removeElement = (elementId: string) => {
-    if (schema.id === elementId) return;
-    setSchema((prev) => removeElementRecursive(prev, elementId) ?? prev);
-    setSelectedElementId(null);
-  };
-
-  const handleMoveElement = useCallback(
-    (sourceId: string, targetParentId: string, targetIndex: number) => {
-      if (sourceId === schema.id) return;
-      if (isDescendant(findElementById(schema, sourceId)!, targetParentId)) return;
-      setSchema((prev) => moveElementInTree(prev, sourceId, targetParentId, targetIndex));
-    }, [schema],
-  );
-
-  const handleSelectElement = (elementId: string) => setSelectedElementId(elementId);
-
-  // ── Copy / Paste / Duplicate ──────────────────────────────────
-
-  const handleCopyElement = useCallback(() => {
-    if (!selectedElementId || selectedElementId === schema.id) return;
-    const el = findElementById(schema, selectedElementId);
-    if (!el) return;
-    setClipboardElement(deepCloneWithNewIds(el));
-  }, [schema, selectedElementId]);
-
-  const handlePasteElement = useCallback(() => {
-    if (!clipboardElement) return;
-    const pasted = deepCloneWithNewIds(clipboardElement);
-    const selected = selectedElementId ? findElementById(schema, selectedElementId) : null;
-    if (selected && selected.type === "container") {
-      setSchema((prev) => addElementRecursive(prev, selected.id, pasted));
-    } else if (selectedElementId) {
-      setSchema((prev) => addSiblingInTree(prev, selectedElementId, pasted));
-    } else {
-      setSchema((prev) => addElementRecursive(prev, schema.id, pasted));
-    }
-    setSelectedElementId(pasted.id);
-  }, [clipboardElement, schema, selectedElementId]);
-
-  const handleDuplicateElement = useCallback((elementId: string) => {
-    if (elementId === schema.id) return;
-    setSchema((prev) => duplicateElementInTree(prev, elementId));
+  const handleMove = useCallback((sid: string, tpid: string, tidx: number) => {
+    if (sid === schema.id || isDesc(findById(schema, sid)!, tpid)) return; setSchema((prev) => moveTree(prev, sid, tpid, tidx));
   }, [schema]);
 
-  const handleQuickAdd = useCallback((siblingId: string, type: ElementType) => {
+  const handleSelect = (id: string) => setSelectedId(id);
+
+  const handleCopy = useCallback(() => {
+    if (!selectedId || selectedId === schema.id) return; const el = findById(schema, selectedId); if (el) setClipboard(deepClone(el));
+  }, [schema, selectedId]);
+
+  const handlePaste = useCallback(() => {
+    if (!clipboard) return; const p = deepClone(clipboard); const sel = selectedId ? findById(schema, selectedId) : null;
+    if (sel && sel.type === "container") setSchema((prev) => addRec(prev, sel.id, p));
+    else if (selectedId) setSchema((prev) => addSib(prev, selectedId, p));
+    else setSchema((prev) => addRec(prev, schema.id, p));
+    setSelectedId(p.id);
+  }, [clipboard, schema, selectedId]);
+
+  const handleDup = useCallback((eid: string) => { if (eid !== schema.id) setSchema((prev) => dupTree(prev, eid)); }, [schema]);
+
+  const handleQuickAdd = useCallback((sid: string, type: ElementType) => {
     const id = generateId(type);
-    let newElement: UIElement;
-    switch (type) {
-      case "text": newElement = { id, type: "text", props: { text: "New Text" }, children: [] }; break;
-      case "button": newElement = { id, type: "button", props: { text: "New Button" }, children: [] }; break;
-      case "container": newElement = { id, type: "container", props: {}, children: [] }; break;
-    }
-    const target = findElementById(schema, siblingId);
-    if (target && target.type === "container" && siblingId !== schema.id) {
-      addElement(siblingId, newElement);
-    } else {
-      setSchema((prev) => addSiblingInTree(prev, siblingId, newElement));
-    }
-    setSelectedElementId(id);
+    let ne: UIElement;
+    switch (type) { case "text": ne = { id, type: "text", props: { text: "New Text" }, children: [] }; break; case "button": ne = { id, type: "button", props: { text: "New Button" }, children: [] }; break; case "container": ne = { id, type: "container", props: {}, children: [] }; break; }
+    const t = findById(schema, sid);
+    if (t && t.type === "container" && sid !== schema.id) addEl(sid, ne); else setSchema((prev) => addSib(prev, sid, ne));
+    setSelectedId(id);
   }, [schema]);
 
-  const handleAddNewElement = (type: ElementType) => {
+  const handleAddNew = (type: ElementType) => {
     const id = generateId(type);
-    let newElement: UIElement;
-    switch (type) {
-      case "text": newElement = { id, type: "text", props: { text: "New Text" }, children: [] }; break;
-      case "button": newElement = { id, type: "button", props: { text: "New Button" }, children: [] }; break;
-      case "container": newElement = { id, type: "container", props: {}, children: [] }; break;
-    }
-    const selectedEl = selectedElementId ? findElementById(schema, selectedElementId) : null;
-    addElement(selectedEl && selectedEl.type === "container" ? selectedEl.id : schema.id, newElement);
-    setSelectedElementId(id);
+    let ne: UIElement;
+    switch (type) { case "text": ne = { id, type: "text", props: { text: "New Text" }, children: [] }; break; case "button": ne = { id, type: "button", props: { text: "New Button" }, children: [] }; break; case "container": ne = { id, type: "container", props: {}, children: [] }; break; }
+    const sel = selectedId ? findById(schema, selectedId) : null; addEl(sel && sel.type === "container" ? sel.id : schema.id, ne); setSelectedId(id);
   };
 
   const handleExportHtml = () => {
-    const htmlContent = exportToHtml(schema);
-    const blob = new Blob([htmlContent], { type: "text/html" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "exported-page.html";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const html = exportToHtml(schema); const blob = new Blob([html], { type: "text/html" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "exported-page.html";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
-  const toggleTheme = useCallback(() => setTheme((p) => (p === "dark" ? "light" : "dark")), []);
+  const handleExportProject = useCallback(async () => {
+    const { html, css, js } = generateClassExport(schema);
+    const zip = new JSZip(); zip.file("index.html", html); zip.file("style.css", css); zip.file("script.js", js);
+    const blob = await zip.generateAsync({ type: "blob" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "fs-builder-project.zip";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }, [schema]);
 
-  // ── Canvas state ──────────────────────────────────────────────
+  const toggleTheme = useCallback(() => setTheme((p) => (p === "dark" ? "light" : "dark")), []);
 
   type Tool = "select" | "hand";
   const [activeTool, setActiveTool] = useState<Tool>("select");
@@ -303,44 +147,28 @@ function App() {
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
   }, []);
 
-  // ── Keyboard shortcuts ────────────────────────────────────────
-
   useEffect(() => {
     const isInput = () => ["input", "textarea", "select"].includes(document.activeElement?.tagName?.toLowerCase() ?? "");
     const handler = (e: KeyboardEvent) => {
-      if (isInput()) return;
-      const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.key === "c") { e.preventDefault(); handleCopyElement(); }
-      else if (mod && e.key === "v") { e.preventDefault(); handlePasteElement(); }
-      else if (mod && e.key === "d") { e.preventDefault(); if (selectedElementId && selectedElementId !== schema.id) handleDuplicateElement(selectedElementId); }
-      else if ((e.key === "Delete" || e.key === "Backspace") && selectedElementId && selectedElementId !== schema.id) { e.preventDefault(); removeElement(selectedElementId); }
+      if (isInput()) return; const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key === "c") { e.preventDefault(); handleCopy(); }
+      else if (mod && e.key === "v") { e.preventDefault(); handlePaste(); }
+      else if (mod && e.key === "d") { e.preventDefault(); if (selectedId && selectedId !== schema.id) handleDup(selectedId); }
+      else if ((e.key === "Delete" || e.key === "Backspace") && selectedId && selectedId !== schema.id) { e.preventDefault(); remEl(selectedId); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleCopyElement, handlePasteElement, handleDuplicateElement, selectedElementId, schema.id]);
+  }, [handleCopy, handlePaste, handleDup, selectedId, schema.id]);
 
-  const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
-    if (effectiveTool === "hand") {
-      setIsPanning(true);
-      panStart.current = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y };
-      e.preventDefault();
-    }
-  }, [effectiveTool, panOffset]);
+  const hMD = useCallback((e: React.MouseEvent) => { if (effectiveTool === "hand") { setIsPanning(true); panStart.current = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y }; e.preventDefault(); } }, [effectiveTool, panOffset]);
+  const hMM = useCallback((e: React.MouseEvent) => { if (isPanning && effectiveTool === "hand") setPanOffset({ x: e.clientX - panStart.current.x, y: e.clientY - panStart.current.y }); }, [effectiveTool, isPanning]);
+  const hMU = useCallback(() => setIsPanning(false), []);
+  const hZI = useCallback(() => setZoom((z) => Math.min(z + 0.1, 3)), []);
+  const hZO = useCallback(() => setZoom((z) => Math.max(z - 0.1, 0.2)), []);
+  const hZR = useCallback(() => { setZoom(1); setPanOffset({ x: 0, y: 0 }); }, []);
+  const hCC = useCallback((e: React.MouseEvent) => { if (effectiveTool === "select" && e.target === e.currentTarget) setSelectedId(null); }, [effectiveTool]);
 
-  const handleCanvasMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isPanning && effectiveTool === "hand") setPanOffset({ x: e.clientX - panStart.current.x, y: e.clientY - panStart.current.y });
-  }, [effectiveTool, isPanning]);
-
-  const handleCanvasMouseUp = useCallback(() => setIsPanning(false), []);
-  const handleZoomIn = useCallback(() => setZoom((z) => Math.min(z + 0.1, 3)), []);
-  const handleZoomOut = useCallback(() => setZoom((z) => Math.max(z - 0.1, 0.2)), []);
-  const handleZoomReset = useCallback(() => { setZoom(1); setPanOffset({ x: 0, y: 0 }); }, []);
-
-  const handleCanvasClick = useCallback((e: React.MouseEvent) => {
-    if (effectiveTool === "select" && e.target === e.currentTarget) setSelectedElementId(null);
-  }, [effectiveTool]);
-
-  const selectedElement = selectedElementId ? findElementById(schema, selectedElementId) : null;
+  const selectedEl = selectedId ? findById(schema, selectedId) : null;
 
   return (
     <div className="editor-layout" data-theme={theme}>
@@ -352,11 +180,13 @@ function App() {
           </div>
         </div>
         <div className="editor-header-right">
+          <button className="editor-btn" onClick={handleExportHtml} title="Download HTML file">⬇ Export HTML</button>
+          <button className="editor-btn editor-btn-primary" onClick={handleExportProject}
+            title="Download full project (HTML + CSS + JS) as ZIP">📦 Export Project</button>
           <button className="editor-btn theme-toggle" onClick={toggleTheme}
             title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}>
             {theme === "dark" ? "☀️" : "🌙"}
           </button>
-          <button className="editor-btn editor-btn-primary" onClick={handleExportHtml}>⬇ Export HTML</button>
         </div>
       </header>
 
@@ -364,9 +194,9 @@ function App() {
         <div className="sidebar-section toolbox-section">
           <div className="sidebar-section-header"><span className="sidebar-section-title">Toolbox</span></div>
           <div className="toolbox-buttons">
-            <button className="editor-btn editor-btn-block" onClick={() => handleAddNewElement("container")}>+ Container</button>
-            <button className="editor-btn editor-btn-block" onClick={() => handleAddNewElement("text")}>+ Text</button>
-            <button className="editor-btn editor-btn-block" onClick={() => handleAddNewElement("button")}>+ Button</button>
+            <button className="editor-btn editor-btn-block" onClick={() => handleAddNew("container")}>+ Container</button>
+            <button className="editor-btn editor-btn-block" onClick={() => handleAddNew("text")}>+ Text</button>
+            <button className="editor-btn editor-btn-block" onClick={() => handleAddNew("button")}>+ Button</button>
           </div>
         </div>
         <div className="sidebar-section layers-section">
@@ -374,24 +204,22 @@ function App() {
             <span className="sidebar-section-title">Layers</span>
             <span className="sidebar-section-count">{countElements(schema)}</span>
           </div>
-          <LayersPanel element={schema} selectedElementId={selectedElementId}
-            onSelect={handleSelectElement} onMoveElement={handleMoveElement} />
+          <LayersPanel element={schema} selectedElementId={selectedId}
+            onSelect={handleSelect} onMoveElement={handleMove} />
         </div>
       </aside>
 
       <main className="editor-canvas"
-        ref={canvasRef} onClick={handleCanvasClick}
-        onMouseDown={handleCanvasMouseDown} onMouseMove={handleCanvasMouseMove}
-        onMouseUp={handleCanvasMouseUp} onMouseLeave={handleCanvasMouseUp}
+        ref={canvasRef} onClick={hCC}
+        onMouseDown={hMD} onMouseMove={hMM}
+        onMouseUp={hMU} onMouseLeave={hMU}
       >
         <div className="editor-canvas__viewport">
           <div className="canvas-grid">
             <div className="canvas-transform-layer" style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})` }}>
               <div className="canvas-paper">
-                <ElementRenderer
-                  element={schema} selectedElementId={selectedElementId} onSelect={handleSelectElement}
-                  onQuickAdd={handleQuickAdd} onDuplicate={handleDuplicateElement} onDelete={removeElement}
-                />
+                <ElementRenderer element={schema} selectedElementId={selectedId} onSelect={handleSelect}
+                  onQuickAdd={handleQuickAdd} onDuplicate={handleDup} onDelete={remEl} />
               </div>
             </div>
           </div>
@@ -408,12 +236,12 @@ function App() {
             </div>
             <div className="canvas-dock__divider" />
             <div className="canvas-dock__group">
-              <button className="canvas-dock__btn" onClick={handleZoomOut} title="Zoom Out">−</button>
+              <button className="canvas-dock__btn" onClick={hZO} title="Zoom Out">−</button>
               <span className="canvas-dock__label">{Math.round(zoom * 100)}%</span>
-              <button className="canvas-dock__btn" onClick={handleZoomIn} title="Zoom In">+</button>
+              <button className="canvas-dock__btn" onClick={hZI} title="Zoom In">+</button>
             </div>
             <div className="canvas-dock__divider" />
-            <button className="canvas-dock__btn" onClick={handleZoomReset} title="Reset Zoom">
+            <button className="canvas-dock__btn" onClick={hZR} title="Reset Zoom">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2"/><path d="M7 4V7L9 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
             </button>
           </div>
@@ -422,7 +250,7 @@ function App() {
       </main>
 
       <aside className="editor-right-sidebar">
-        <PropertiesPanel selectedElement={selectedElement} onUpdate={updateElement} onDelete={removeElement} />
+        <PropertiesPanel selectedElement={selectedEl} onUpdate={updEl} onDelete={remEl} />
       </aside>
     </div>
   );

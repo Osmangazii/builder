@@ -1,6 +1,6 @@
 export type ElementType = "container" | "text" | "button";
 
-// ── Shared styling properties used by all element types ────────
+// ── Shared styling properties ──────────────────────────────────
 
 export type DisplayMode = "block" | "inline-block" | "flex";
 
@@ -14,6 +14,15 @@ export interface BaseStyleProps {
   borderColor?: string;
   backgroundColor?: string;
   borderRadius?: number;
+}
+
+// ── Interaction / event props ──────────────────────────────────
+
+export type ClickAction = "none" | "alert" | "toggle-class" | "navigate" | "custom";
+
+export interface InteractionProps {
+  onClickType?: ClickAction;
+  onClickValue?: string;
 }
 
 // ── Per-type prop definitions ──────────────────────────────────
@@ -34,13 +43,13 @@ export interface TextProps extends BaseStyleProps {
   textAlign?: "left" | "center" | "right";
 }
 
-export interface ButtonProps extends BaseStyleProps {
+export interface ButtonProps extends BaseStyleProps, InteractionProps {
   text: string;
   color?: string;
   padding?: number;
 }
 
-// A mapped type to associate element types with their props for better type safety
+// A mapped type to associate element types with their props
 export type ElementProps = {
   container: ContainerProps;
   text: TextProps;
@@ -48,7 +57,6 @@ export type ElementProps = {
 };
 
 // The core schema for a single UI element, using a discriminated union.
-// This ensures that the `props` for an element match its `type`.
 export type UIElement =
   | {
       id: string;
@@ -60,11 +68,11 @@ export type UIElement =
       id: string;
       type: "text";
       props: ElementProps["text"];
-      children: never[]; // Text elements cannot have children
+      children: never[];
     }
   | {
       id: string;
       type: "button";
       props: ElementProps["button"];
-      children: never[]; // Buttons cannot have children
+      children: never[];
     };

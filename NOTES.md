@@ -101,7 +101,42 @@ fs-builder, kullanıcıların sürükle-bırak editörü kullanarak tam donanım
   - Color picker alanı için özel CSS stilleri (`prop-color-row`, `prop-color-picker`, `prop-color-hex`) eklendi; hem renk seçici hem de hex metin girişi yan yana çalışır.
   - Mevcut container özellikleri, layout yapısı, katman paneli, tema sistemi ve tüm state mantığı korundu.
 
+### Adım 18: Katmanlar Üzerinden Sürükle-Bırak (Layers Drag & Drop)
+- **Durum**: Tamamlandı.
+- **Açıklama**: Layers panelinde HTML5 native Drag & Drop desteği eklendi:
+  - **Yeniden Sıralama ve İç İçe Taşıma:** Kullanıcılar katman ağacında herhangi bir elementi sürükleyerek kardeşleri arasında yeniden sıralayabilir veya bir container'ın içine taşıyabilir.
+  - **Drop Zone Algılama:** Mouse Y pozisyonuna göre `before`, `inside`, `after` olmak üzere üç farklı drop zone belirlenir. Her zone için görsel geri bildirim (accent renkli çizgi, kesik outline) sağlanır.
+  - **Kısıtlamalar:** Root container sürüklenemez. Bir element kendi alt öğesinin içine bırakılamaz (circular drop engellenir). Aynı parent içinde taşımalarda index otomatik ayarlanır.
+  - **State Yönetimi (`App.tsx`):** `extractElement`, `insertElementAt`, `moveElementInTree` gibi yardımcı fonksiyonlar eklendi. Tüm taşıma işlemleri immutable şema güncellemeleri ile yapılır.
+  - Tüm mevcut özellikler (selection, properties panel, HTML export) korundu.
+
+### Adım 19: Gelişmiş Canvas Viewport & Alt Araç Barı (Pan/Zoom Controls)
+- **Durum**: Tamamlandı.
+- **Açıklama**: Canvas görünümü profesyonel bir tasarım aracı deneyimine kavuşturuldu:
+  - **Keskin Web Sayfası Görünümü:** Canvas kağıdı (`canvas-paper`) sıfır border-radius ve sıfır padding ile gerçek bir web sayfası gibi görünür. Yapay kenar boşlukları ve gölgeler kaldırıldı.
+  - **Pan (El Aracı):** Canvas altındaki dock toolbar'da bulunan el aracı ile veya Space tuşuna basılı tutarak canvas üzerinde kaydırma yapılabilir. `grab`/`grabbing` cursor desteği mevcuttur.
+  - **Zoom (+/- / Sıfırla):** %20–300 aralığında yakınlaştırma/uzaklaştırma. Sıfırlama butonu zoom'u %100'e ve pan'i sıfıra döndürür.
+  - **Dot Grid Arka Planı:** Canvas zemininde `radial-gradient` ile oluşturulmuş 20px aralıklı nokta deseni. Temadan bağımsız `--canvas-border` rengi kullanır.
+  - **Floating Selection Badge:** Seçili elementin sol-üst köşesinde mavi bir badge belirir. Badge'de element türü, hızlı ekleme (+), çoğaltma (⧉) ve silme (🗑) butonları bulunur. Hızlı ekleme butonu Container/Text/Button seçenekli bir popover açar.
+  - **Copy/Paste Motoru:** `Ctrl+C` / `Ctrl+V` / `Ctrl+D` klavye kısayolları ile kopyala-yapıştır-çoğalt işlemleri. Her kopyalamada tüm element ağacına yeni unique ID'ler atanır (`deepCloneWithNewIds`). Input/textarea odaklıyken kısayollar devre dışı kalır.
+  - Root container'ın editor görünümü `outline` (zero-layout) kullanır, exported HTML'ye hiçbir yardımcı stil sızmaz.
+  - Tüm mevcut özellikler (selection, layers, drag-drop, properties panel, theme, HTML export) korundu.
+
+### Adım 20: Canlı Kod Önizleme ve HTML/CSS Ayrıştırma Motoru (Live Code View & CSS Class Generation)
+- **Durum**: Tamamlandı.
+- **Açıklama**: Canvas altına gerçek zamanlı, katlanabilir bir kod önizleme paneli eklendi:
+  - **CodePanel Bileşeni (`CodePanel.tsx`):** Canvas'ın alt kısmında flex column düzeninde konumlanır. Header'ında dosya sekmeleri ve aksiyon butonları bulunur.
+  - **Sekmeli Arayüz:** `index.html` (class-based HTML) ve `style.css` (tam CSS stylesheet) olmak üzere iki sekme. Syntax highlighting ile renklendirilmiş monospace kod görünümü.
+  - **CSS Class Generation (`class-exporter.ts`):** Her elemente semantic class adları atanır (`fs-container-root`, `fs-text-1`, `fs-button-2`). Tüm inline style'lar HTML'den kaldırılarak ayrı bir CSS çıktısına taşınır.
+  - **Gerçek Zamanlı Senkronizasyon:** Her şema değişiminde HTML ve CSS otomatik yeniden üretilir (useMemo ile optimize edilmiştir).
+  - **Copy Butonu:** Aktif sekmedeki kodu panoya kopyalar. "✓ Copied!" feedback ile kullanıcıya geri bildirim verir.
+  - **Formatlama:** Kod 2-space indent ile temiz ve okunabilir formatta sunulur. Gereksiz default değerler (margin: 5px, padding: 0px gibi) çıktıya eklenmez.
+  - **Syntax Highlighting:** HTML için tag'ler mavi (`#569cd6`), attribute'lar cyan (`#9cdcfe`), değerler turuncu (`#ce9178`). CSS için selector'lar mavi, property'ler cyan, değerler turuncu.
+  - VS Code benzeri koyu tema (`#1e1e1e` arka plan) ile görsel tutarlılık sağlanır.
+  - Mevcut `exportToHtml` (inline style ile export) fonksiyonu korundu — Export HTML butonu için hala kullanılır.
+  - Tüm mevcut özellikler (selection, layers, drag-drop, properties panel, pan/zoom, copy/paste, theme) korundu.
+
 ---
 
 ## Mevcut Hedef
-- Sıradaki adımı bekliyor. Editörün temel stil yetenekleri artık sağlam bir temele oturmuştur. Bir sonraki aşamada gerçek zamanlı kod önizlemesi (Real-time Code Preview) ve Gelişmiş HTML/CSS/JS Dışa Aktarma motoru (Advanced Export Engine) gibi yeni yetenekler eklenebilir.
+- Sıradaki adımı bekliyor. Görsel editörün çekirdek layout'u, canvas kontrolleri ve export motoru artık sağlam ve üretime hazır bir temele oturmuştur. Bir sonraki ana kilometre taşı: Bileşen Kütüphanesinin Genişletilmesi — Gelişmiş Form ve UI Elemanları (Input, Textarea, Select, List, İkon) ve Ön Tanımlı UI Bileşen Blokları (Pre-built Component Blocks) eklenmesi.

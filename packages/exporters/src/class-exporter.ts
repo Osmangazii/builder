@@ -1,4 +1,5 @@
 import type { UIElement, ContainerProps, TextProps, ButtonProps, BaseStyleProps } from "../../core-schema/src";
+import { generateJs } from "./js-generator";
 
 // ═══════════════════════════════════════════════════════════════
 //  CLASS NAME GENERATOR
@@ -70,7 +71,6 @@ function collectCssRules(schema: UIElement, classMap: ClassMap): CssRule[] {
       if (p.borderRadius) dec["border-radius"] = `${p.borderRadius}px`;
     }
 
-    // Common base style props
     if (el.props.width) dec["width"] = el.props.width;
     if (el.props.height) dec["height"] = el.props.height;
     if (el.props.margin !== undefined && el.props.margin > 0) dec["margin"] = `${el.props.margin}px`;
@@ -114,7 +114,7 @@ function cssRulesToString(rules: CssRule[]): string {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  CLEAN HTML GENERATOR (class-based, no inline styles)
+//  CLEAN HTML GENERATOR (class-based)
 // ═══════════════════════════════════════════════════════════════
 
 const GLOBAL_CSS = `* {
@@ -165,6 +165,7 @@ function elementToCleanHtml(el: UIElement, classMap: ClassMap): string {
 export interface ClassExport {
   html: string;
   css: string;
+  js: string;
   globalCss: string;
 }
 
@@ -173,6 +174,7 @@ export function generateClassExport(schema: UIElement): ClassExport {
   const bodyHtml = elementToCleanHtml(schema, classMap);
   const rules = collectCssRules(schema, classMap);
   const elementCss = cssRulesToString(rules);
+  const jsCode = generateJs(schema, classMap);
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -184,6 +186,7 @@ export function generateClassExport(schema: UIElement): ClassExport {
 </head>
 <body>
   ${bodyHtml}
+  <script src="script.js" defer></script>
 </body>
 </html>`;
 
@@ -193,5 +196,7 @@ export function generateClassExport(schema: UIElement): ClassExport {
 
 ${elementCss}`;
 
-  return { html, css, globalCss: GLOBAL_CSS };
+  const js = jsCode;
+
+  return { html, css, js, globalCss: GLOBAL_CSS };
 }

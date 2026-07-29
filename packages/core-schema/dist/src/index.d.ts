@@ -11,6 +11,11 @@ export interface BaseStyleProps {
     backgroundColor?: string;
     borderRadius?: number;
 }
+export type ClickAction = "none" | "alert" | "toggle-class" | "navigate" | "custom";
+export interface InteractionProps {
+    onClickType?: ClickAction;
+    onClickValue?: string;
+}
 export interface ContainerProps extends BaseStyleProps {
     direction?: "vertical" | "horizontal";
     gap?: number;
@@ -25,7 +30,7 @@ export interface TextProps extends BaseStyleProps {
     fontWeight?: "normal" | "medium" | "bold";
     textAlign?: "left" | "center" | "right";
 }
-export interface ButtonProps extends BaseStyleProps {
+export interface ButtonProps extends BaseStyleProps, InteractionProps {
     text: string;
     color?: string;
     padding?: number;
