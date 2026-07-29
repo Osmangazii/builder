@@ -142,6 +142,105 @@ function removeElementRecursive(
   return currentElement;
 }
 
+// ── Move (Drag & Drop) helpers ──────────────────────────────────
+
+function findElementParent(
+  element: UIElement,
+  id: string,
+): { parentId: string; index: number } | null {
+  if ("children" in element) {
+    for (let i = 0; i < element.children.length; i++) {
+      if (element.children[i].id === id) {
+        return { parentId: element.id, index: i };
+      }
+      const found = findElementParent(element.children[i], id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function isDescendant(element: UIElement, id: string): boolean {
+  if (element.id === id) return true;
+  if ("children" in element) {
+    return element.children.some((child) => isDescendant(child, id));
+  }
+  return false;
+}
+
+function extractElement(
+  element: UIElement,
+  sourceId: string,
+): { newTree: UIElement; removed: UIElement } | null {
+  if ("children" in element) {
+    for (let i = 0; i < element.children.length; i++) {
+      if (element.children[i].id === sourceId) {
+        const removed = element.children[i];
+        const newChildren = [...element.children];
+        newChildren.splice(i, 1);
+        return {
+          newTree: { ...element, children: newChildren } as UIElement,
+          removed,
+        };
+      }
+      const result = extractElement(element.children[i], sourceId);
+      if (result) {
+        const newChildren = [...element.children];
+        newChildren[i] = result.newTree;
+        return {
+          newTree: { ...element, children: newChildren } as UIElement,
+          removed: result.removed,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+function insertElementAt(
+  currentElement: UIElement,
+  elementToInsert: UIElement,
+  parentId: string,
+  index: number,
+): UIElement {
+  if (currentElement.id === parentId) {
+    if (currentElement.type !== "container") {
+      console.error("Cannot insert into non-container");
+      return currentElement;
+    }
+    const children = [...currentElement.children];
+    const safeIndex = Math.min(index, children.length);
+    children.splice(safeIndex, 0, elementToInsert);
+    return { ...currentElement, children } as UIElement;
+  }
+  if ("children" in currentElement && currentElement.children.length > 0) {
+    return {
+      ...currentElement,
+      children: currentElement.children.map((child) =>
+        insertElementAt(child, elementToInsert, parentId, index),
+      ),
+    } as UIElement;
+  }
+  return currentElement;
+}
+
+function moveElementInTree(
+  tree: UIElement,
+  sourceId: string,
+  targetParentId: string,
+  targetIndex: number,
+): UIElement {
+  const sourceInfo = findElementParent(tree, sourceId);
+  if (!sourceInfo) return tree;
+  const extracted = extractElement(tree, sourceId);
+  if (!extracted) return tree;
+  let adjustedIndex = targetIndex;
+  if (sourceInfo.parentId === targetParentId && sourceInfo.index < targetIndex) {
+    adjustedIndex = Math.max(0, targetIndex - 1);
+  }
+  return insertElementAt(extracted.newTree, extracted.removed, targetParentId, adjustedIndex);
+}
+
 function App() {
   const [schema, setSchema] = useState<UIElement>(initialSchema);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(
@@ -173,6 +272,16 @@ function App() {
     }
     setSelectedElementId(null);
   };
+
+  const handleMoveElement = useCallback(
+    (sourceId: string, targetParentId: string, targetIndex: number) => {
+      if (sourceId === schema.id) return; // root locked
+      if (isDescendant(findElementById(schema, sourceId)!, targetParentId)) return; // circular
+      const newSchema = moveElementInTree(schema, sourceId, targetParentId, targetIndex);
+      setSchema(newSchema);
+    },
+    [schema],
+  );
 
   const handleSelectElement = (elementId: string) => {
     setSelectedElementId(elementId);
@@ -302,6 +411,7 @@ function App() {
             element={schema}
             selectedElementId={selectedElementId}
             onSelect={handleSelectElement}
+            onMoveElement={handleMoveElement}
           />
         </div>
       </aside>
