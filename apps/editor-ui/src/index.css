@@ -1,54 +1,125 @@
+/* ================================================================
+   THEME SYSTEM — CSS Variables
+   Dark theme is the default (professional dev-tool aesthetic).
+   Light theme only affects the editor UI chrome; the canvas/preview
+   area stays visually isolated.
+   ================================================================ */
+
 :root {
-    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-    line-height: 1.5;
-    font-weight: 400;
+  /* ── Dark Theme (default) ────────────────────────────────────── */
+  --bg-header: #11111b;
+  --bg-main: #1e1e2e;
+  --bg-sidebar: #181825;
+  --bg-surface: #242438;
+  --bg-hover: #2a2a3c;
+  --bg-active: #313244;
 
-    /* Enforce a single light theme for consistent contrast */
-    color: #2d3748; /* Dark grayish-blue text */
-    background-color: #ffffff;
+  --border-color: #313244;
+  --border-light: #45475a;
 
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  --text-main: #cdd6f4;
+  --text-muted: #6c7086;
+  --text-dim: #45475a;
+  --text-inverse: #1e1e2e;
+
+  --accent-color: #89b4fa;
+  --accent-hover: #74c7ec;
+  --danger-color: #f38ba8;
+  --danger-hover: #e64553;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+
+  /* ── Canvas / Preview (theme-independent) ──────────────────── */
+  --canvas-bg: #e2e8f0;
+  --canvas-surface: #ffffff;
+  --canvas-border: #cbd5e1;
+}
+
+/* ── Light Theme Overrides (editor chrome only) ─────────────── */
+[data-theme="light"] {
+  --bg-header: #ffffff;
+  --bg-main: #f8fafc;
+  --bg-sidebar: #ffffff;
+  --bg-surface: #f1f5f9;
+  --bg-hover: #e2e8f0;
+  --bg-active: #cbd5e1;
+
+  --border-color: #e2e8f0;
+  --border-light: #cbd5e1;
+
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+  --text-inverse: #ffffff;
+
+  --accent-color: #3b82f6;
+  --accent-hover: #2563eb;
+  --danger-color: #ef4444;
+  --danger-hover: #dc2626;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* ================================================================
+   BASE STYLES
+   ================================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
-    margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--text-main);
+  background-color: var(--bg-main);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-h1,
-h2,
-h3 {
-    letter-spacing: -0.025em;
+#root {
+  height: 100%;
 }
 
-h1 {
-    font-size: 2.25rem;
-    line-height: 1.1;
+/* ── Typography ──────────────────────────────────────────────── */
+
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.025em;
+  margin: 0;
 }
 
-h3 {
-    font-size: 1.25rem;
-}
+h1 { font-size: 1.5rem; }
+h3 { font-size: 0.95rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
-button {
-    border-radius: 6px;
-    border: 1px solid #e2e8f0;
-    padding: 0.5em 1em;
-    font-size: 1em;
-    font-weight: 500;
-    font-family: inherit;
-    background-color: #ffffff;
-    cursor: pointer;
-    transition: all 0.15s ease-in-out;
+/* ── Scrollbar ───────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
-button:hover {
-    border-color: #cbd5e1;
-    background-color: #f7fafc;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
-button:focus,
-button:focus-visible {
-    outline: 2px solid #3b82f6;
-    outline-offset: 2px;
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-light);
 }

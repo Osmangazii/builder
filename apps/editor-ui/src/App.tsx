@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { UIElement, ElementType } from "@fs-builder/core-schema";
 import { exportToHtml } from "@fs-builder/exporters";
 import "./App.css";
@@ -71,7 +71,7 @@ function addElementRecursive(
     return {
       ...currentElement,
       children: [...currentElement.children, newElement],
-    };
+    } as UIElement;
   }
 
   if ("children" in currentElement && currentElement.children.length > 0) {
@@ -80,7 +80,7 @@ function addElementRecursive(
       children: currentElement.children.map((child) =>
         addElementRecursive(child, parentId, newElement),
       ),
-    };
+    } as UIElement;
   }
 
   return currentElement;
@@ -95,7 +95,7 @@ function updateElementRecursive(
     return {
       ...currentElement,
       props: { ...currentElement.props, ...newProps },
-    };
+    } as UIElement;
   }
 
   if ("children" in currentElement && currentElement.children.length > 0) {
@@ -104,7 +104,7 @@ function updateElementRecursive(
       children: currentElement.children.map((child) =>
         updateElementRecursive(child, elementId, newProps),
       ),
-    };
+    } as UIElement;
   }
 
   return currentElement;
@@ -124,7 +124,7 @@ function removeElementRecursive(
       children: currentElement.children
         .map((child) => removeElementRecursive(child, elementId))
         .filter((child): child is UIElement => child !== null),
-    };
+    } as UIElement;
   }
 
   return currentElement;
@@ -135,6 +135,7 @@ function App() {
   const [selectedElementId, setSelectedElementId] = useState<string | null>(
     null,
   );
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   const addElement = (parentId: string, newElement: UIElement) => {
     const newSchema = addElementRecursive(schema, parentId, newElement);
@@ -218,58 +219,101 @@ function App() {
     document.body.removeChild(link);
   };
 
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  }, []);
+
   const selectedElement = selectedElementId
     ? findElementById(schema, selectedElementId)
     : null;
 
   return (
-    <main>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "10px 20px",
-          borderBottom: "1px solid #e2e8f0",
-        }}
+    <div className="editor-layout" data-theme={theme}>
+      {/* ═══ HEADER ═══ */}
+      <header className="editor-header">
+        <div className="editor-header-left">
+          <div className="editor-logo">
+            <span className="editor-logo-icon">FS</span>
+            <span>FS-Builder</span>
+          </div>
+        </div>
+        <div className="editor-header-right">
+          <button
+            className="editor-btn theme-toggle"
+            onClick={toggleTheme}
+            title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+          >
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
+          <button className="editor-btn editor-btn-primary" onClick={handleExportHtml}>
+            ⬇ Export HTML
+          </button>
+        </div>
+      </header>
+
+      {/* ═══ LEFT SIDEBAR ═══ */}
+      <aside className="editor-left-sidebar">
+        {/* Toolbox Section */}
+        <div className="sidebar-section toolbox-section">
+          <div className="sidebar-section-header">
+            <span className="sidebar-section-title">Toolbox</span>
+          </div>
+          <div className="toolbox-buttons">
+            <button
+              className="editor-btn editor-btn-block"
+              onClick={() => handleAddNewElement("container")}
+            >
+              + Container
+            </button>
+            <button
+              className="editor-btn editor-btn-block"
+              onClick={() => handleAddNewElement("text")}
+            >
+              + Text
+            </button>
+            <button
+              className="editor-btn editor-btn-block"
+              onClick={() => handleAddNewElement("button")}
+            >
+              + Button
+            </button>
+          </div>
+        </div>
+
+        {/* Layers Section (placeholder) */}
+        <div className="sidebar-section layers-section">
+          <div className="sidebar-section-header">
+            <span className="sidebar-section-title">Layers</span>
+          </div>
+          <div className="layers-placeholder">
+            Layer panel coming soon
+          </div>
+        </div>
+      </aside>
+
+      {/* ═══ CANVAS / PREVIEW ═══ */}
+      <main
+        className="editor-canvas"
+        onClick={() => setSelectedElementId(null)}
       >
-        <h1>FS-Builder</h1>
-        <button onClick={handleExportHtml}>Export HTML</button>
-      </div>
-      <div className="app-wrapper">
-        <div
-          className="renderer-wrapper"
-          onClick={() => setSelectedElementId(null)}
-        >
+        <div className="canvas-viewport">
           <ElementRenderer
             element={schema}
             selectedElementId={selectedElementId}
             onSelect={handleSelectElement}
           />
         </div>
-        <div className="sidebar-wrapper">
-          <div className="toolbox-wrapper">
-            <h3>Toolbox</h3>
-            <div className="toolbox-buttons">
-              <button onClick={() => handleAddNewElement("container")}>
-                Add Container
-              </button>
-              <button onClick={() => handleAddNewElement("text")}>
-                Add Text
-              </button>
-              <button onClick={() => handleAddNewElement("button")}>
-                Add Button
-              </button>
-            </div>
-          </div>
-          <PropertiesPanel
-            selectedElement={selectedElement}
-            onUpdate={updateElement}
-            onDelete={removeElement}
-          />
-        </div>
-      </div>
-    </main>
+      </main>
+
+      {/* ═══ RIGHT SIDEBAR ═══ */}
+      <aside className="editor-right-sidebar">
+        <PropertiesPanel
+          selectedElement={selectedElement}
+          onUpdate={updateElement}
+          onDelete={removeElement}
+        />
+      </aside>
+    </div>
   );
 }
 

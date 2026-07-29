@@ -1,50 +1,302 @@
-.app-wrapper {
-    display: flex;
-    height: calc(100vh - 75px); /* Subtract header height */
-    width: 100%;
+/* ================================================================
+   EDITOR LAYOUT — Four-Region Grid
+   ================================================================ */
+
+.editor-layout {
+  display: grid;
+  grid-template-rows: 48px 1fr;
+  grid-template-columns: 240px 1fr 260px;
+  grid-template-areas:
+    "header   header   header"
+    "left     canvas   right";
+  height: 100vh;
+  width: 100%;
 }
 
-.renderer-wrapper {
-    flex-grow: 1;
-    padding: 20px;
-    border-right: 1px solid #e2e8f0;
-    background-color: #f7fafc;
-    overflow-y: auto;
+/* ── HEADER ──────────────────────────────────────────────────── */
+
+.editor-header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border-color);
+  z-index: 10;
 }
 
-.sidebar-wrapper {
-    width: 280px;
-    min-width: 240px;
-    display: flex;
-    flex-direction: column;
+.editor-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.toolbox-wrapper {
-    padding: 20px;
-    border-bottom: 1px solid #e2e8f0;
+.editor-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent-color);
+  letter-spacing: -0.02em;
+  user-select: none;
 }
 
-.toolbox-wrapper h3 {
-    margin-top: 0;
+.editor-logo-icon {
+  width: 24px;
+  height: 24px;
+  background: var(--accent-color);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-inverse);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.editor-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── LEFT SIDEBAR ────────────────────────────────────────────── */
+
+.editor-left-sidebar {
+  grid-area: left;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.sidebar-section {
+  padding: 12px;
+}
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.sidebar-section-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* Toolbox */
+.toolbox-section {
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 12px;
 }
 
 .toolbox-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
+
+/* Layers placeholder */
+.layers-section {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.layers-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+  border: 1px dashed var(--border-color);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+
+/* ── RIGHT SIDEBAR ───────────────────────────────────────────── */
+
+.editor-right-sidebar {
+  grid-area: right;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-sidebar);
+  border-left: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+/* ── CANVAS / PREVIEW AREA (theme-isolated) ─────────────────── */
+
+.editor-canvas {
+  grid-area: canvas;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px;
+  background: var(--canvas-bg);
+  overflow-y: auto;
+  /* The canvas area does NOT use theme CSS variables for its own background.
+     It uses --canvas-bg which stays the same regardless of theme. */
+}
+
+.canvas-viewport {
+  width: 100%;
+  max-width: 900px;
+  min-height: 500px;
+  background: var(--canvas-surface);
+  border: 1px solid var(--canvas-border);
+  border-radius: 8px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12);
+  padding: 24px;
+  /* The viewport is a blank page surface — no theme colors leak in */
+}
+
+/* ================================================================
+   EDITOR BUTTONS
+   ================================================================ */
+
+.editor-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-family: inherit;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.editor-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-light);
+}
+
+.editor-btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent-color);
+}
+
+.editor-btn-primary {
+  background: var(--accent-color);
+  color: var(--text-inverse);
+  border-color: var(--accent-color);
+}
+
+.editor-btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.editor-btn-danger {
+  color: var(--danger-color);
+  border-color: var(--border-color);
+}
+
+.editor-btn-danger:hover {
+  background: var(--danger-hover);
+  border-color: var(--danger-hover);
+  color: #ffffff;
+}
+
+.editor-btn-icon {
+  padding: 6px;
+  min-width: 32px;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.editor-btn-block {
+  width: 100%;
+  justify-content: center;
+}
+
+/* ── Theme Toggle ────────────────────────────────────────────── */
+
+.theme-toggle {
+  font-size: 1rem;
+  padding: 6px 10px;
+  min-width: 36px;
+  justify-content: center;
+}
+
+/* ================================================================
+   PROPERTIES PANEL (lives inside right sidebar)
+   ================================================================ */
 
 .properties-panel-wrapper {
-    flex-grow: 1;
-    padding: 20px;
-    background-color: #ffffff;
-    overflow-y: auto;
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
 }
 
-input[type="text"] {
-    padding: 8px;
-    border-radius: 4px;
-    border: 1px solid #cbd5e1;
-    width: 100%;
-    box-sizing: border-box; /* Ensures padding doesn't add to width */
+.properties-panel-wrapper h3 {
+  margin-bottom: 8px;
+}
+
+.properties-panel-wrapper label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.properties-panel-wrapper input[type="text"],
+.properties-panel-wrapper input[type="number"],
+.properties-panel-wrapper select {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-main);
+  color: var(--text-main);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.properties-panel-wrapper input[type="text"]:focus,
+.properties-panel-wrapper input[type="number"]:focus,
+.properties-panel-wrapper select:focus {
+  border-color: var(--accent-color);
+}
+
+.properties-panel-divider {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 12px 0;
+}
+
+.properties-panel-id {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  overflow-wrap: break-word;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.properties-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  text-align: center;
 }

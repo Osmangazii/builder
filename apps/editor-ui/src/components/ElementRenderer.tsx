@@ -38,7 +38,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
   };
 
   switch (type) {
-    case "container":
+    case "container": {
       const { direction = "vertical", gap = 0, padding = 20 } = props;
       return (
         <div
@@ -71,6 +71,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
           )}
         </div>
       );
+      }
 
     case "text":
       return (

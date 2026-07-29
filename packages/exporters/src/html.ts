@@ -1,4 +1,4 @@
-import type { UIElement } from "@fs-builder/core-schema";
+import type { UIElement } from "../../core-schema/src";
 
 const getGlobalStyles = (): string => `
   body {

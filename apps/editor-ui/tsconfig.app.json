@@ -17,6 +17,9 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
+      "@fs-builder/core-schema": ["../../packages/core-schema/src"],
+      "@fs-builder/core-schema/*": ["../../packages/core-schema/src/*"],
+      "@fs-builder/exporters": ["../../packages/exporters/src"],
       "@fs-builder/exporters/*": ["../../packages/exporters/src/*"],
     },
 

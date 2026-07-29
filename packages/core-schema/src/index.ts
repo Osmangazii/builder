@@ -35,11 +35,11 @@ export type UIElement =
       id: string;
       type: "text";
       props: ElementProps["text"];
-      children: []; // Text elements cannot have children
+      children: never[]; // Text elements cannot have children
     }
   | {
       id: string;
       type: "button";
       props: ElementProps["button"];
-      children: []; // Buttons cannot have children
+      children: never[]; // Buttons cannot have children
     };

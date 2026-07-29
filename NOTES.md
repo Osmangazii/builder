@@ -70,7 +70,18 @@ fs-builder, kullanıcıların sürükle-bırak editörü kullanarak tam donanım
 - **Durum**: Tamamlandı.
 - **Açıklama**: `PropertiesPanel`'e, seçili bir eleman olduğunda görünen bir "Delete Element" butonu eklendi. Bu buton, mevcut silme mantığını kullanarak bir elemanı ve tüm alt elemanlarını şemadan güvenli bir şekilde kaldırır. Kök elemanın silinmesi engellenmiştir ve bir eleman silindikten sonra seçim durumu temizlenir.
 
+### Adım 15: Modern Editör Düzeninin ve Tema Altyapısının Kurulması
+- **Durum**: Tamamlandı.
+- **Açıklama**: Editör arayüzü, profesyonel görsel IDE'lere ve tasarım araçlarına (Figma, VS Code vb.) benzer şekilde dört bölgeli bir grid layout'a (`index.css`, `App.css`) taşındı:
+  - **Header (Üst):** Logo/Proje başlığı, Dark/Light tema değiştirme butonu ve "Export HTML" butonu.
+  - **Sol Sidebar:** Üst kısımda "Toolbox" (Container, Text, Button ekleme butonları), alt kısımda "Layers" paneli için yer tutucu (placeholder).
+  - **Merkez Canvas (Önizleme):** Kullanıcının oluşturduğu web sayfasının önizlemesini gösteren, izole edilmiş bir alan. `ElementRenderer` bileşeni burada render edilir.
+  - **Sağ Sidebar:** Seçili elemanın özelliklerini düzenlemek için `PropertiesPanel` bileşeni.
+- CSS Variables (`--bg-main`, `--bg-sidebar`, `--border-color`, `--text-main`, `--accent-color`, vb.) kullanılarak Dark (varsayılan, Catppuccin Mocha benzeri profesyonel görünüm) ve Light olmak üzere iki temalı bir sistem entegre edildi. Tema, header'daki bir buton ile anlık olarak değiştirilebilir.
+- **Kritik Kazanım:** Merkez Canvas/Önizleme alanı, tema sisteminden tamamen izole edildi. Canvas zemini (`--canvas-bg`) ve yüzeyi (`--canvas-surface`) temadan bağımsız sabit renkler kullanır. Bu sayede editör teması değiştiğinde kullanıcının oluşturduğu web sayfasının stilleri (inline style) hiçbir şekilde etkilenmez veya bozulmaz.
+- Tüm mevcut state yönetimi, eleman seçimi, iç içe konteyner mantığı ve HTML dışa aktarma özellikleri korundu.
+
 ---
 
 ## Mevcut Hedef
-- Sıradaki adımı bekliyor.
+- Sıradaki adımı bekliyor. Bir sonraki özellik tanımı ile projeye devam edilebilir.

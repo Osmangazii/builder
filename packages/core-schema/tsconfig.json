@@ -13,6 +13,7 @@
     "noFallthroughCasesInSwitch": true,
 
     /* Settings for project references */
+    "composite": true,
     "declaration": true,
     "declarationMap": true,
     "emitDeclarationOnly": true,
