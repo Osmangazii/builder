@@ -127,7 +127,6 @@
   user-select: none;
 }
 
-/* Individual row */
 .layer-row {
   display: flex;
   align-items: center;
@@ -154,7 +153,6 @@
   background: var(--bg-active);
 }
 
-/* Expand / collapse toggle */
 .layer-toggle {
   display: inline-flex;
   align-items: center;
@@ -175,7 +173,6 @@
   visibility: hidden;
 }
 
-/* Type icon */
 .layer-icon {
   flex-shrink: 0;
   width: 18px;
@@ -184,7 +181,6 @@
   line-height: 1;
 }
 
-/* Descriptive label */
 .layer-label {
   flex: 1;
   overflow: hidden;
@@ -193,7 +189,6 @@
   font-size: 0.78rem;
 }
 
-/* Child count badge */
 .layer-badge {
   flex-shrink: 0;
   font-size: 0.6rem;
@@ -207,30 +202,24 @@
   text-align: center;
 }
 
-/* Children are indented via inline paddingLeft on each row */
-
 /* ── Drag & Drop ─────────────────────────────────────────────── */
 
-/* Ghost of the dragged element */
 .layer-row--dragging {
   opacity: 0.35;
 }
 
-/* Drop indicator: horizontal accent line above the targeted row */
 .layer-row--drop-before {
   box-shadow: inset 0 2px 0 var(--accent-color);
   border-top-left-radius: 0;
   border-top-right-radius: 0;
 }
 
-/* Drop indicator: horizontal accent line below the targeted row */
 .layer-row--drop-after {
   box-shadow: inset 0 -2px 0 var(--accent-color);
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
 
-/* Drop indicator: full highlight for dropping inside a container */
 .layer-row--drop-inside {
   background: var(--bg-active);
   outline: 2px dashed var(--accent-color);
@@ -261,8 +250,6 @@
   overflow: hidden;
   cursor: default;
   user-select: none;
-  /* The canvas area does NOT use theme CSS variables for its own background.
-     It uses --canvas-bg which stays the same regardless of theme. */
 }
 
 .editor-canvas--hand {
@@ -273,8 +260,6 @@
 .editor-canvas--grabbing * {
   cursor: grabbing !important;
 }
-
-/* ── Dot grid background ───────────────────────────────────── */
 
 .canvas-grid {
   position: absolute;
@@ -287,14 +272,10 @@
   background-size: 20px 20px;
 }
 
-/* ── Transform layer (pan + zoom) ──────────────────────────── */
-
 .canvas-transform-layer {
   transform-origin: center center;
   transition: transform 0.05s ease;
 }
-
-/* ── Paper sheet (sharp webpage viewport) ──────────────────── */
 
 .canvas-paper {
   width: 900px;
@@ -303,10 +284,7 @@
   border-radius: 0;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
   padding: 0;
-  /* The paper is a blank page with sharp corners — no theme colors leak in */
 }
-
-/* ── Bottom Dock Toolbar ───────────────────────────────────── */
 
 .canvas-dock {
   position: absolute;
@@ -378,6 +356,101 @@
   user-select: none;
 }
 
+/* ── Selection Badge ──────────────────────────────────────────── */
+
+.sel-badge {
+  position: absolute;
+  top: -28px;
+  left: -2px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 24px;
+  background: #3b82f6;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: inherit;
+  border-radius: 4px 4px 0 0;
+  z-index: 100;
+  white-space: nowrap;
+  user-select: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.sel-badge__label {
+  padding: 0 8px;
+  line-height: 24px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.6rem;
+}
+
+.sel-badge__actions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  border-left: 1px solid rgba(255,255,255,0.25);
+  padding-left: 1px;
+}
+
+.sel-badge__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.sel-badge__btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.sel-badge__btn--danger:hover {
+  background: rgba(255,0,0,0.35);
+}
+
+.sel-badge__popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: var(--shadow-md);
+  z-index: 200;
+  min-width: 110px;
+}
+
+.sel-badge__popover-item {
+  display: block;
+  width: 100%;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s ease;
+}
+
+.sel-badge__popover-item:hover {
+  background: var(--bg-hover);
+}
+
 /* ================================================================
    EDITOR BUTTONS
    ================================================================ */
@@ -444,8 +517,6 @@
   justify-content: center;
 }
 
-/* ── Theme Toggle ────────────────────────────────────────────── */
-
 .theme-toggle {
   font-size: 1rem;
   padding: 6px 10px;
@@ -454,7 +525,7 @@
 }
 
 /* ================================================================
-   PROPERTIES PANEL (lives inside right sidebar)
+   PROPERTIES PANEL
    ================================================================ */
 
 .properties-panel-wrapper {
@@ -490,8 +561,6 @@
   font-size: 0.85rem;
   text-align: center;
 }
-
-/* ── Collapsible Section ───────────────────────────────────── */
 
 .prop-section {
   margin-bottom: 4px;
@@ -540,8 +609,6 @@
   padding: 2px 0 6px;
 }
 
-/* ── Field rows ────────────────────────────────────────────── */
-
 .prop-field {
   margin-bottom: 6px;
 }
@@ -582,7 +649,6 @@ input[type="number"].prop-input::-webkit-inner-spin-button {
   margin: 0;
 }
 
-/* Two-column row */
 .prop-row {
   display: flex;
   gap: 6px;
@@ -592,8 +658,6 @@ input[type="number"].prop-input::-webkit-inner-spin-button {
   flex: 1;
   min-width: 0;
 }
-
-/* ── Button Group (segmented control) ──────────────────────── */
 
 .prop-btn-group {
   display: flex;
@@ -635,8 +699,6 @@ input[type="number"].prop-input::-webkit-inner-spin-button {
 .prop-btn-group__btn--active:hover {
   background: var(--accent-hover);
 }
-
-/* ── Color picker row ─────────────────────────────────────── */
 
 .prop-color-row {
   display: flex;

@@ -46,12 +46,14 @@ function getElementStyles(element: UIElement): string {
   if (element.type === "container") {
     const p = element.props as ContainerProps;
     const display = p.display || "flex";
-    const { direction = "vertical", gap = 0, padding = 20 } = p;
+    const { direction = "vertical", gap = 0, padding = 0 } = p;
 
     styles += `display: ${display};`;
     if (display === "flex") {
       styles += `flex-direction: ${direction === "horizontal" ? "row" : "column"};`;
       styles += `gap: ${gap}px;`;
+      styles += `justify-content: ${p.justifyContent || "flex-start"};`;
+      styles += `align-items: ${p.alignItems || "stretch"};`;
     }
     styles += `padding: ${padding}px;`;
     styles += `border: 1px solid #e2e8f0;`;

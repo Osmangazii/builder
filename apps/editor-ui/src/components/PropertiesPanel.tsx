@@ -250,7 +250,6 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const update = (newProps: Partial<TextProps | ButtonProps | ContainerProps>) =>
     onUpdate(id, newProps);
 
-  // Cast to BaseStyleProps for shared access
   const shared = rawProps as BaseStyleProps;
   const isFlex = (shared.display ?? (type === "container" ? "flex" : undefined)) === "flex";
 
@@ -271,19 +270,16 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
             { value: "flex", label: "Flex" },
           ]}
           onChange={(v: DisplayMode) => {
-            // Merge display switch with a default direction for containers
             const merged: Partial<ContainerProps> = { display: v };
             if (v === "flex" && type === "container") {
               const p = rawProps as ContainerProps;
-              if (!p.direction) {
-                merged.direction = "vertical";
-              }
+              if (!p.direction) merged.direction = "vertical";
             }
             update(merged);
           }}
         />
 
-        {/* Flex-only: Direction + Gap — visible only when display is 'flex' */}
+        {/* Flex-only controls */}
         {isFlex && type === "container" && (() => {
           const p = rawProps as ContainerProps;
           return (
@@ -297,17 +293,43 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 ]}
                 onChange={(v) => update({ direction: v as "vertical" | "horizontal" })}
               />
+
               <div className="prop-row">
                 <HalfNumField id={`${id}-gap`} label="Gap" value={p.gap ?? 0} onChange={(v) => update({ gap: v })} />
-                <HalfNumField id={`${id}-pad`} label="Padding" value={p.padding ?? 20} onChange={(v) => update({ padding: v })} />
+                <HalfNumField id={`${id}-pad`} label="Padding" value={p.padding ?? 0} onChange={(v) => update({ padding: v })} />
               </div>
+
+              <ButtonGroup
+                label="Justify"
+                value={p.justifyContent}
+                options={[
+                  { value: "flex-start", label: "Start" },
+                  { value: "center", label: "Center" },
+                  { value: "flex-end", label: "End" },
+                  { value: "space-between", label: "Between" },
+                  { value: "space-around", label: "Around" },
+                ]}
+                onChange={(v) => update({ justifyContent: v as ContainerProps["justifyContent"] })}
+              />
+
+              <ButtonGroup
+                label="Align"
+                value={p.alignItems}
+                options={[
+                  { value: "flex-start", label: "Top" },
+                  { value: "center", label: "Center" },
+                  { value: "flex-end", label: "Bottom" },
+                  { value: "stretch", label: "Stretch" },
+                ]}
+                onChange={(v) => update({ alignItems: v as ContainerProps["alignItems"] })}
+              />
             </>
           );
         })()}
 
         {/* Padding for non-flex or text/button */}
         {(!isFlex || type !== "container") && type === "container" && (
-          <HalfNumField id={`${id}-pad`} label="Padding" value={(rawProps as ContainerProps).padding ?? 20} onChange={(v) => update({ padding: v })} />
+          <HalfNumField id={`${id}-pad`} label="Padding" value={(rawProps as ContainerProps).padding ?? 0} onChange={(v) => update({ padding: v })} />
         )}
         {type === "button" && (
           <HalfNumField id={`${id}-pad-btn`} label="Padding" value={(rawProps as ButtonProps).padding} onChange={(v) => update({ padding: v })} />
@@ -316,7 +338,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         <LayoutFields id={id} props={shared} onUpdate={onUpdate} />
       </Section>
 
-      {/* ── TYPOGRAPHY SECTION (text & button only) ── */}
+      {/* ── TYPOGRAPHY SECTION ── */}
       {(type === "text" || type === "button") && (
         <Section title="Typography">
           {type === "text" && (() => {
@@ -357,7 +379,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         </Section>
       )}
 
-      {/* ── APPEARANCE SECTION — now visible for ALL element types ── */}
+      {/* ── APPEARANCE SECTION ── */}
       <Section title="Appearance" defaultOpen={false}>
         <AppearanceFields id={id} props={shared} onUpdate={onUpdate} />
 

@@ -22,6 +22,8 @@ export interface ContainerProps extends BaseStyleProps {
   direction?: "vertical" | "horizontal";
   gap?: number;
   padding?: number;
+  justifyContent?: "flex-start" | "center" | "flex-end" | "space-between" | "space-around";
+  alignItems?: "flex-start" | "center" | "flex-end" | "stretch";
 }
 
 export interface TextProps extends BaseStyleProps {
