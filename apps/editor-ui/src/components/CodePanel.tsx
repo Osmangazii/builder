@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from "react";
-import type { UIElement, ContainerProps, TextProps, ButtonProps } from "@fs-builder/core-schema";
-import { exportToHtml } from "@fs-builder/exporters";
+import type { UIElement } from "@fs-builder/core-schema";
+import { generateClassExport } from "@fs-builder/exporters";
 
 interface CodePanelProps {
   schema: UIElement;
@@ -11,7 +11,6 @@ interface CodePanelProps {
 // ═══════════════════════════════════════════════════════════════
 
 function formatHtml(raw: string): string {
-  // Strip all whitespace between tags to get a compact single line
   const compact = raw
     .replace(/>\s+</g, "><")
     .replace(/\s+</g, "<")
@@ -26,10 +25,9 @@ function formatHtml(raw: string): string {
     const tagStart = compact.indexOf("<", pos);
     if (tagStart === -1) break;
 
-    // Emit any text between tags at current indent
     if (tagStart > pos) {
       const text = compact.slice(pos, tagStart).trim();
-      if (text) lines.push("  ".repeat(indent) + text);
+      if (text) lines.push("  ".repeat(indent) + escapeHtml(text));
     }
 
     const tagEnd = compact.indexOf(">", tagStart);
@@ -41,15 +39,9 @@ function formatHtml(raw: string): string {
     const isComment = tag.startsWith("<!--");
     const isDoctype = /^<!doctype/i.test(tag);
 
-    // Decrease indent BEFORE writing closing tags
     if (isClosing) indent = Math.max(0, indent - 1);
-
     lines.push("  ".repeat(indent) + escapeTagBrackets(tag));
-
-    // Increase indent AFTER writing opening tags
-    if (!isClosing && !isSelfClosing && !isComment && !isDoctype) {
-      indent++;
-    }
+    if (!isClosing && !isSelfClosing && !isComment && !isDoctype) indent++;
 
     pos = tagEnd + 1;
   }
@@ -57,9 +49,12 @@ function formatHtml(raw: string): string {
   return lines.join("\n");
 }
 
-/** Only escape < and > inside tag-like strings for highlighting later. */
 function escapeTagBrackets(tag: string): string {
   return tag.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -78,62 +73,6 @@ function highlightHtml(formatted: string): string {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  CSS EXTRACTOR
-// ═══════════════════════════════════════════════════════════════
-
-function extractCss(schema: UIElement): string {
-  const lines: string[] = [];
-  function walk(el: UIElement, depth: number) {
-    const indent = "  ".repeat(depth);
-    const sel = el.id === "root-container" ? "body" : `.el-${el.id}`;
-    const style: Record<string, string> = {};
-
-    if (el.type === "container") {
-      const p = el.props as ContainerProps;
-      const display = p.display || "flex";
-      style["display"] = display;
-      if (display === "flex") {
-        style["flex-direction"] = p.direction === "horizontal" ? "row" : "column";
-        if (p.gap) style["gap"] = `${p.gap}px`;
-        style["justify-content"] = p.justifyContent || "flex-start";
-        style["align-items"] = p.alignItems || "stretch";
-      }
-      if (p.padding) style["padding"] = `${p.padding}px`;
-      if (p.backgroundColor) style["background-color"] = p.backgroundColor;
-    } else if (el.type === "text") {
-      const p = el.props as TextProps;
-      if (p.fontSize) style["font-size"] = `${p.fontSize}px`;
-      if (p.color) style["color"] = p.color;
-      if (p.fontWeight) style["font-weight"] = p.fontWeight;
-      if (p.textAlign) style["text-align"] = p.textAlign;
-    } else if (el.type === "button") {
-      const p = el.props as ButtonProps;
-      if (p.backgroundColor) style["background-color"] = p.backgroundColor;
-      if (p.color) style["color"] = p.color;
-      if (p.padding) style["padding"] = `${p.padding}px`;
-      if (p.borderRadius) style["border-radius"] = `${p.borderRadius}px`;
-    }
-
-    if (el.props.width) style["width"] = el.props.width;
-    if (el.props.height) style["height"] = el.props.height;
-    if (el.props.margin) style["margin"] = `${el.props.margin}px`;
-
-    if (Object.keys(style).length > 0) {
-      lines.push(`${indent}${sel} {`);
-      for (const [prop, val] of Object.entries(style)) {
-        lines.push(`${indent}  ${prop}: ${val};`);
-      }
-      lines.push(`${indent}}`);
-    }
-    if ("children" in el && el.children.length > 0) {
-      for (const child of el.children) walk(child, depth + 1);
-    }
-  }
-  walk(schema, 0);
-  return lines.join("\n");
-}
-
-// ═══════════════════════════════════════════════════════════════
 //  COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
@@ -142,10 +81,10 @@ export const CodePanel: React.FC<CodePanelProps> = ({ schema }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const htmlRaw = useMemo(() => exportToHtml(schema), [schema]);
-  const formattedHtml = useMemo(() => formatHtml(htmlRaw), [htmlRaw]);
+  const classExport = useMemo(() => generateClassExport(schema), [schema]);
+  const formattedHtml = useMemo(() => formatHtml(classExport.html), [classExport.html]);
   const highlightedHtml = useMemo(() => highlightHtml(formattedHtml), [formattedHtml]);
-  const cssCode = useMemo(() => extractCss(schema), [schema]);
+  const cssCode = classExport.css;
 
   const handleCopy = useCallback(async () => {
     const text = activeTab === "html" ? unescapeHtml(formattedHtml) : cssCode;
@@ -204,7 +143,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ schema }) => {
             <code
               className="code-panel__code"
               dangerouslySetInnerHTML={{
-                __html: activeTab === "html" ? highlightedHtml : escapeCss(cssCode),
+                __html: activeTab === "html" ? highlightedHtml : highlightCss(cssCode),
               }}
             />
           </pre>
@@ -214,17 +153,20 @@ export const CodePanel: React.FC<CodePanelProps> = ({ schema }) => {
   );
 };
 
-function escapeCss(code: string): string {
+// ═══════════════════════════════════════════════════════════════
+//  CSS SYNTAX HIGHLIGHTER
+// ═══════════════════════════════════════════════════════════════
+
+function highlightCss(code: string): string {
   return code
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/("(?:[^"\\]|\\.)*")/g, '<span class="hl-value">$1</span>')
+    .replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="hl-comment">$1</span>')
     .replace(/([a-zA-Z-]+)(?=\s*:)/g, '<span class="hl-attr">$1</span>')
-    .replace(/(:\s*[^;]+;)/g, '<span class="hl-value">$1</span>')
-    .replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="hl-comment">$1</span>');
+    .replace(/(:\s*)([^;]+)(;)/g, '$1<span class="hl-value">$2</span>$3')
+    .replace(/(\.[a-zA-Z0-9_-]+)/g, '<span class="hl-tag">$1</span>');
 }
 
-/** Reverse the bracket escaping so clipboard gets real HTML. */
 function unescapeHtml(escaped: string): string {
   return escaped
     .replace(/&lt;/g, "<")
