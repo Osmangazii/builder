@@ -1,22 +1,32 @@
 export type ElementType = "container" | "text" | "button";
-export interface ContainerProps {
+export type DisplayMode = "block" | "inline-block" | "flex";
+export interface BaseStyleProps {
+    display?: DisplayMode;
+    width?: string;
+    height?: string;
+    margin?: number;
+    borderWidth?: number;
+    borderStyle?: "solid" | "dashed" | "none";
+    borderColor?: string;
+    backgroundColor?: string;
+    borderRadius?: number;
+}
+export interface ContainerProps extends BaseStyleProps {
     direction?: "vertical" | "horizontal";
     gap?: number;
     padding?: number;
 }
-export interface TextProps {
+export interface TextProps extends BaseStyleProps {
     text: string;
     fontSize?: number;
     color?: string;
     fontWeight?: "normal" | "medium" | "bold";
     textAlign?: "left" | "center" | "right";
 }
-export interface ButtonProps {
+export interface ButtonProps extends BaseStyleProps {
     text: string;
-    backgroundColor?: string;
     color?: string;
     padding?: number;
-    borderRadius?: number;
 }
 export type ElementProps = {
     container: ContainerProps;

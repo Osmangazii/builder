@@ -1,13 +1,30 @@
 export type ElementType = "container" | "text" | "button";
 
-// Prop definitions for each element type
-export interface ContainerProps {
+// ── Shared styling properties used by all element types ────────
+
+export type DisplayMode = "block" | "inline-block" | "flex";
+
+export interface BaseStyleProps {
+  display?: DisplayMode;
+  width?: string;
+  height?: string;
+  margin?: number;
+  borderWidth?: number;
+  borderStyle?: "solid" | "dashed" | "none";
+  borderColor?: string;
+  backgroundColor?: string;
+  borderRadius?: number;
+}
+
+// ── Per-type prop definitions ──────────────────────────────────
+
+export interface ContainerProps extends BaseStyleProps {
   direction?: "vertical" | "horizontal";
   gap?: number;
   padding?: number;
 }
 
-export interface TextProps {
+export interface TextProps extends BaseStyleProps {
   text: string;
   fontSize?: number;
   color?: string;
@@ -15,12 +32,10 @@ export interface TextProps {
   textAlign?: "left" | "center" | "right";
 }
 
-export interface ButtonProps {
+export interface ButtonProps extends BaseStyleProps {
   text: string;
-  backgroundColor?: string;
   color?: string;
   padding?: number;
-  borderRadius?: number;
 }
 
 // A mapped type to associate element types with their props for better type safety

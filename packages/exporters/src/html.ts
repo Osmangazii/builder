@@ -1,4 +1,4 @@
-import type { UIElement, TextProps, ButtonProps, ContainerProps } from "../../core-schema/src";
+import type { UIElement, TextProps, ButtonProps, ContainerProps, BaseStyleProps } from "../../core-schema/src";
 
 const getGlobalStyles = (): string => `
   body {
@@ -24,32 +24,53 @@ const getGlobalStyles = (): string => `
   }
 `;
 
+function appendBaseStyles(styles: string, p: BaseStyleProps): string {
+  let s = styles;
+  if (p.display) s += `display: ${p.display};`;
+  if (p.width) s += `width: ${p.width};`;
+  if (p.height) s += `height: ${p.height};`;
+  if (p.margin !== undefined && p.margin >= 0) s += `margin: ${p.margin}px;`;
+  if (p.backgroundColor) s += `background-color: ${p.backgroundColor};`;
+  if (p.borderRadius !== undefined && p.borderRadius >= 0) s += `border-radius: ${p.borderRadius}px;`;
+  if (p.borderWidth !== undefined && p.borderWidth >= 0) {
+    s += `border-width: ${p.borderWidth}px;`;
+    s += `border-style: ${p.borderStyle || "solid"};`;
+    if (p.borderColor) s += `border-color: ${p.borderColor};`;
+  }
+  return s;
+}
+
 function getElementStyles(element: UIElement): string {
   let styles = "margin: 5px;";
 
   if (element.type === "container") {
-    const { direction = "vertical", gap = 0, padding = 20 } = element.props as ContainerProps;
-    styles += `
-      display: flex;
-      flex-direction: ${direction === "horizontal" ? "row" : "column"};
-      gap: ${gap}px;
-      padding: ${padding}px;
-      border: 1px solid #e2e8f0;
-      border-radius: 4px;
-      background-color: #f7fafc;
-    `;
+    const p = element.props as ContainerProps;
+    const display = p.display || "flex";
+    const { direction = "vertical", gap = 0, padding = 20 } = p;
+
+    styles += `display: ${display};`;
+    if (display === "flex") {
+      styles += `flex-direction: ${direction === "horizontal" ? "row" : "column"};`;
+      styles += `gap: ${gap}px;`;
+    }
+    styles += `padding: ${padding}px;`;
+    styles += `border: 1px solid #e2e8f0;`;
+    styles += `border-radius: 4px;`;
+    styles += `background-color: #f7fafc;`;
+
+    styles = appendBaseStyles(styles, p as BaseStyleProps);
   } else if (element.type === "text") {
     const p = element.props as TextProps;
     if (p.fontSize) styles += `font-size: ${p.fontSize}px;`;
     if (p.color) styles += `color: ${p.color};`;
     if (p.fontWeight) styles += `font-weight: ${p.fontWeight};`;
     if (p.textAlign) styles += `text-align: ${p.textAlign};`;
+    styles = appendBaseStyles(styles, p as BaseStyleProps);
   } else if (element.type === "button") {
     const p = element.props as ButtonProps;
-    if (p.backgroundColor) styles += `background-color: ${p.backgroundColor};`;
     if (p.color) styles += `color: ${p.color};`;
     if (p.padding !== undefined) styles += `padding: ${p.padding}px;`;
-    if (p.borderRadius !== undefined) styles += `border-radius: ${p.borderRadius}px;`;
+    styles = appendBaseStyles(styles, p as BaseStyleProps);
   }
 
   return styles;

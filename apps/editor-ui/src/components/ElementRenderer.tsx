@@ -1,10 +1,27 @@
 import React from "react";
-import type { UIElement, TextProps, ButtonProps, ContainerProps } from "@fs-builder/core-schema";
+import type { UIElement, TextProps, ButtonProps, ContainerProps, BaseStyleProps } from "@fs-builder/core-schema";
 
 interface ElementRendererProps {
   element: UIElement;
   selectedElementId: string | null;
   onSelect: (elementId: string) => void;
+}
+
+/** Extracts common style props (width, height, margin, border, display) into CSSProperties. */
+function commonStyles(p: BaseStyleProps): React.CSSProperties {
+  const styles: React.CSSProperties = {};
+  styles.display = p.display || undefined;
+  if (p.width) styles.width = p.width;
+  if (p.height) styles.height = p.height;
+  if (p.margin !== undefined && p.margin >= 0) styles.margin = `${p.margin}px`;
+  if (p.backgroundColor) styles.backgroundColor = p.backgroundColor;
+  if (p.borderRadius !== undefined && p.borderRadius >= 0) styles.borderRadius = `${p.borderRadius}px`;
+  if (p.borderWidth !== undefined && p.borderWidth >= 0) {
+    styles.borderWidth = `${p.borderWidth}px`;
+    styles.borderStyle = p.borderStyle || "solid";
+    if (p.borderColor) styles.borderColor = p.borderColor;
+  }
+  return styles;
 }
 
 export const ElementRenderer: React.FC<ElementRendererProps> = ({
@@ -20,12 +37,10 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
 
   const isSelected = id === selectedElementId;
 
-  // Base styles for all elements
   const baseStyle: React.CSSProperties = {
     cursor: "pointer",
   };
 
-  // Selection style
   const selectionStyle: React.CSSProperties = isSelected
     ? { outline: "2px solid #3b82f6" }
     : {};
@@ -37,25 +52,34 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
 
   switch (type) {
     case "container": {
+      const p = props as ContainerProps;
+      const userDisplay = p.display || "flex";
       const {
         direction = "vertical",
         gap = 0,
         padding = 20,
-      } = props as ContainerProps;
+      } = p;
+
+      const containerSpecific: React.CSSProperties = userDisplay === "flex"
+        ? {
+            flexDirection: direction === "horizontal" ? "row" : "column",
+            gap: `${gap}px`,
+            padding: `${padding}px`,
+          }
+        : { padding: `${padding}px` };
+
       return (
         <div
           data-id={id}
           onClick={handleClick}
           style={{
             ...baseStyle,
-            display: "flex",
-            flexDirection: direction === "horizontal" ? "row" : "column",
-            gap: `${gap}px`,
-            padding: `${padding}px`,
+            ...containerSpecific,
             border: "1px solid #e2e8f0",
             margin: "5px",
             borderRadius: "4px",
             backgroundColor: "#f7fafc",
+            ...commonStyles(p as BaseStyleProps),
             ...selectionStyle,
           }}
         >
@@ -87,7 +111,12 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
         <p
           data-id={id}
           onClick={handleClick}
-          style={{ ...baseStyle, ...textStyles, ...selectionStyle }}
+          style={{
+            ...baseStyle,
+            ...textStyles,
+            ...commonStyles(p as BaseStyleProps),
+            ...selectionStyle,
+          }}
         >
           {p.text || "Default Text"}
         </p>
@@ -97,16 +126,19 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
     case "button": {
       const p = props as ButtonProps;
       const btnStyles: React.CSSProperties = {
-        backgroundColor: p.backgroundColor || undefined,
         color: p.color || undefined,
         padding: p.padding !== undefined ? `${p.padding}px` : undefined,
-        borderRadius: p.borderRadius !== undefined ? `${p.borderRadius}px` : undefined,
       };
       return (
         <button
           data-id={id}
           onClick={handleClick}
-          style={{ ...baseStyle, ...btnStyles, ...selectionStyle }}
+          style={{
+            ...baseStyle,
+            ...btnStyles,
+            ...commonStyles(p as BaseStyleProps),
+            ...selectionStyle,
+          }}
         >
           {p.text || "Default Button"}
         </button>
