@@ -92,6 +92,7 @@ function App() {
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [viewPortDevice, setViewPortDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  const paperRef = useRef<HTMLDivElement>(null);
 
   const addEl = (pid: string, ne: UIElement) => setSchema((p) => addRec(p, pid, ne));
   const updEl = (id: string, p: Partial<UIElement["props"]>) => setSchema((prev) => updRec(prev, id, p));
@@ -176,6 +177,14 @@ function App() {
   const panStart = useRef({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
   const effectiveTool: Tool = isSpaceHeld ? "hand" : activeTool;
+
+  // ── Cleanup any leftover responsive override style tags ─────
+  // Responsive class filtering is now handled at the ElementRenderer level
+  // via filterResponsiveClasses(). The old CSS @container approach is removed.
+  useEffect(() => {
+    const existing = document.getElementById("fsb-responsive-override");
+    if (existing) existing.remove();
+  }, []);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => { if (e.code === "Space" && !e.repeat) { e.preventDefault(); setIsSpaceHeld(true); } };
@@ -268,7 +277,8 @@ function App() {
             <div className="canvas-transform-layer" style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})` }}>
               <div className={`canvas-paper canvas-paper--${viewPortDevice}`}>
                 <ElementRenderer element={schema} selectedElementId={selectedId} onSelect={handleSelect}
-                  onQuickAdd={handleQuickAdd} onDuplicate={handleDup} onDelete={remEl} />
+                  onQuickAdd={handleQuickAdd} onDuplicate={handleDup} onDelete={remEl}
+                  viewportMode={viewPortDevice} />
               </div>
             </div>
           </div>

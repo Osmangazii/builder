@@ -8,6 +8,8 @@ interface ElementRendererProps {
   onQuickAdd: (siblingId: string, type: ElementType) => void;
   onDuplicate: (elementId: string) => void;
   onDelete: (elementId: string) => void;
+  /** Active viewport device mode; used to strip inapplicable responsive Tailwind classes */
+  viewportMode?: "desktop" | "tablet" | "mobile";
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -15,6 +17,37 @@ const TYPE_LABELS: Record<string, string> = {
   text: "Text",
   button: "Button",
 };
+
+// ── Responsive class filter ───────────────────────────────────
+// Tailwind Play CDN compiles @media rules based on window.innerWidth.
+// To make responsive classes respect the canvas container width,
+// we strip breakpoint-prefixed classes that exceed the current viewport mode.
+
+const RESPONSIVE_BPS = new Set(["sm", "md", "lg", "xl", "2xl"]);
+const BP_WIDTHS: Record<string, number> = {
+  sm: 640, md: 768, lg: 1024, xl: 1280, "2xl": 1536,
+};
+
+function filterResponsiveClasses(tw: string, viewportMode: string): string {
+  // Map viewport mode to max active breakpoint width
+  const maxActivePx =
+    viewportMode === "mobile" ? 0 :
+    viewportMode === "tablet" ? 768 :
+    Infinity;
+
+  return tw.split(/\s+/)
+    .filter((cls) => {
+      if (!cls) return false;
+      const ci = cls.indexOf(":");
+      if (ci === -1) return true; // no variant → keep
+      const prefix = cls.slice(0, ci);
+      // Only filter Tailwind responsive breakpoints; leave hover/dark/children variants alone
+      if (!RESPONSIVE_BPS.has(prefix)) return true;
+      const bpPx = BP_WIDTHS[prefix];
+      return bpPx <= maxActivePx;
+    })
+    .join(" ");
+}
 
 // ── Selection Badge ────────────────────────────────────────────
 
@@ -67,11 +100,15 @@ const SelectionBadge: React.FC<{
 
 // ── Tailwind class resolver ──────────────────────────────────
 
-function resolveClasses(element: UIElement): string {
+function resolveClasses(element: UIElement, viewportMode: string): string {
   // Each element stores tailwindClasses in its props.
   // Since UIElement.props is a discriminated union, we access it via a safe cast.
   const tailwindClasses = (element.props as Record<string, unknown>).tailwindClasses as string | undefined;
-  if (tailwindClasses) return tailwindClasses;
+  if (tailwindClasses) {
+    return viewportMode !== "desktop"
+      ? filterResponsiveClasses(tailwindClasses, viewportMode)
+      : tailwindClasses;
+  }
 
   // Fallback for migration compatibility
   switch (element.type) {
@@ -85,7 +122,7 @@ function resolveClasses(element: UIElement): string {
 // ── Main Renderer ─────────────────────────────────────────────
 
 export const ElementRenderer: React.FC<ElementRendererProps> = ({
-  element, selectedElementId, onSelect, onQuickAdd, onDuplicate, onDelete,
+  element, selectedElementId, onSelect, onQuickAdd, onDuplicate, onDelete, viewportMode = "desktop",
 }) => {
   if (!element) return null;
 
@@ -102,7 +139,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
     onSelect(id);
   };
 
-  const tw = resolveClasses(element);
+  const tw = resolveClasses(element, viewportMode);
 
   switch (type) {
     case "container":
@@ -125,7 +162,8 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
             children.map((child) => (
               <ElementRenderer key={child.id} element={child}
                 selectedElementId={selectedElementId} onSelect={onSelect}
-                onQuickAdd={onQuickAdd} onDuplicate={onDuplicate} onDelete={onDelete} />
+                onQuickAdd={onQuickAdd} onDuplicate={onDuplicate} onDelete={onDelete}
+                viewportMode={viewportMode} />
             ))
           ) : (
             <div style={{ minHeight: "20px", backgroundColor: "#f0f0f0" }} />
