@@ -117,7 +117,15 @@ function convertNode(node: Element | ChildNode): UIElement | null {
   if (tag === "script" || tag === "style") return null;
 
   // Get Tailwind classes FIRST (before any early return that needs it)
-  const tw = el.getAttribute("class") || "";
+  let tw = el.getAttribute("class") || "";
+
+  // Ensure <input> elements have min-w-0 to prevent flex stretching
+  // which can obscure sibling elements like <kbd> badges.
+  if (tag === "input") {
+    if (!tw.includes("min-w-0") && !tw.includes("w-")) {
+      tw = tw ? tw + " min-w-0" : "min-w-0";
+    }
+  }
 
   // Treat SVG as an opaque structural container (preserves its class
   // but skips deep recursion into SVG sub-elements).

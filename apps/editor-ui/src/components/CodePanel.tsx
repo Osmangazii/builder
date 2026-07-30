@@ -100,27 +100,63 @@ export const CodePanel: React.FC<CodePanelProps> = ({ schema }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const classExport = useMemo(() => generateClassExport(schema), [schema]);
-  const formattedHtml = useMemo(() => formatHtml(classExport.html), [classExport.html]);
+  // ── Safe code extraction with try/catch ─────────────────────
+  const codeSnapshot = useMemo(() => {
+    try {
+      const exportResult = generateClassExport(schema);
+      const jsCode = exportResult.files?.["src/js/app.js"]
+        ?? exportResult.files?.["script.js"]
+        ?? "// No dynamic interactions defined yet.";
+      return {
+        html: exportResult.html ?? "",
+        js: jsCode,
+      };
+    } catch (err) {
+      console.error("[CodePanel] Failed to generate export:", err);
+      return {
+        html: "<!-- Error generating HTML preview -->",
+        js: "// Error generating JS preview\nconsole.error('Failed to compile interactions');",
+      };
+    }
+  }, [schema]);
+
+  const formattedHtml = useMemo(() => formatHtml(codeSnapshot.html), [codeSnapshot.html]);
   const highlightedHtml = useMemo(() => highlightHtml(formattedHtml), [formattedHtml]);
+  const highlightedJs = useMemo(() => {
+    try {
+      return highlightJs(codeSnapshot.js);
+    } catch {
+      return highlightJs("// Error rendering JS preview");
+    }
+  }, [codeSnapshot.js]);
 
   const handleCopy = useCallback(async () => {
-    const text = activeTab === "html" ? unescapeHtml(formattedHtml) : classExport.js;
     try {
+      const text = activeTab === "html"
+        ? unescapeHtml(formattedHtml)
+        : codeSnapshot.js;
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      // Fallback: use textarea for older browsers
+      try {
+        const text = activeTab === "html"
+          ? unescapeHtml(formattedHtml)
+          : codeSnapshot.js;
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      } catch {
+        // Silently fail — copy isn't critical
+      }
     }
-  }, [activeTab, formattedHtml, classExport]);
+  }, [activeTab, formattedHtml, codeSnapshot.js]);
 
   return (
     <div className={`code-panel${collapsed ? " code-panel--collapsed" : ""}`}>
@@ -132,7 +168,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ schema }) => {
           </button>
           <button className={`code-panel__tab${activeTab === "js" ? " code-panel__tab--active" : ""}`}
             onClick={() => setActiveTab("js")}>
-            <span className="code-panel__tab-icon">JS</span> script.js
+            <span className="code-panel__tab-icon">JS</span> app.js
           </button>
         </div>
         <div className="code-panel__actions">
@@ -150,7 +186,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ schema }) => {
           <pre className="code-panel__pre">
             <code className="code-panel__code"
               dangerouslySetInnerHTML={{
-                __html: activeTab === "html" ? highlightedHtml : highlightJs(classExport.js),
+                __html: activeTab === "html" ? highlightedHtml : highlightedJs,
               }} />
           </pre>
         </div>

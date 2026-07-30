@@ -122,6 +122,21 @@ function resolveClasses(element: UIElement, viewportMode: string): string {
   return "";
 }
 
+// ── Utility element detector ──────────────────────────────────
+// Small positioning helpers (badges, dots, icon wraps) should get
+// a subtle selection indicator instead of the full intrusive badge.
+
+function isUtilityElement(element: UIElement): boolean {
+  const tw = ((element.props as Record<string, unknown>).tailwindClasses as string) ?? "";
+  // Absolute/fixed positioned elements are likely badges, toggles, overlays
+  if (/\babsolute\b/.test(tw) || /\bfixed\b/.test(tw)) return true;
+  // Very small dimensions indicate icons, dots, or decorative elements
+  if (/\bw-0\.?5?\b|\bh-0\.?5?\b|\bw-1\b|\bh-1\b|\bw-1\.5\b|\bh-1\.5\b|\bw-2\b|\bh-2\b/.test(tw)) return true;
+  // sr-only or inset-0 full-cover elements are structural, not interactive
+  if (/\bsr-only\b/.test(tw)) return true;
+  return false;
+}
+
 // ── Main Renderer ─────────────────────────────────────────────
 
 export const ElementRenderer: React.FC<ElementRendererProps> = ({
@@ -132,13 +147,17 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
   const { type, children, id } = element;
   const isSelected = id === selectedElementId;
   const isRoot = id === "root-container";
+  const isUtility = isUtilityElement(element);
 
   // Read interactions from props (available on all types via CoreElementProps)
   const interactions: ElementInteraction[] | undefined =
     (element.props as Record<string, unknown>).interactions as ElementInteraction[] | undefined;
 
+  // Utility elements get a subtle dashed outline; main elements get full solid + offset
   const selectionStyle: React.CSSProperties = isSelected
-    ? { outline: "2px solid #3b82f6", outlineOffset: "1px" }
+    ? isUtility
+      ? { outline: "1px dashed #3b82f680", outlineOffset: 0 }
+      : { outline: "2px solid #3b82f6", outlineOffset: "1px" }
     : {};
 
   const handleClick = useCallback((e: React.MouseEvent) => {
@@ -166,7 +185,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
             ...selectionStyle,
           }}
         >
-          {isSelected && (
+          {isSelected && !isUtility && (
             <SelectionBadge element={element} onQuickAdd={onQuickAdd} onDuplicate={onDuplicate} onDelete={onDelete} />
           )}
           {children.length > 0 ? (
@@ -190,7 +209,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
           className={tw}
           style={{ position: "relative", cursor: "pointer", ...selectionStyle }}
         >
-          {isSelected && (
+          {isSelected && !isUtility && (
             <SelectionBadge element={element} onQuickAdd={onQuickAdd} onDuplicate={onDuplicate} onDelete={onDelete} />
           )}
           {(element.props as TextProps).text || "Default Text"}
@@ -205,7 +224,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
           className={tw}
           style={{ position: "relative", cursor: "pointer", ...selectionStyle }}
         >
-          {isSelected && (
+          {isSelected && !isUtility && (
             <SelectionBadge element={element} onQuickAdd={onQuickAdd} onDuplicate={onDuplicate} onDelete={onDelete} />
           )}
           {(element.props as ButtonProps).text || "Default Button"}

@@ -73,7 +73,7 @@
 .canvas-dock__btn--device.canvas-dock__btn--active { background: #3b82f6; color: #ffffff; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35); }
 .canvas-dock__label { font-size: 0.72rem; font-weight: 600; color: #a1a1aa; min-width: 36px; text-align: center; user-select: none; }
 
-.sel-badge { position: absolute; top: -28px; left: -2px; display: flex; align-items: center; gap: 0; height: 24px; background: var(--accent-color); color: #ffffff; font-size: 0.7rem; font-weight: 600; border-radius: 4px 4px 0 0; z-index: 100; white-space: nowrap; user-select: none; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+.sel-badge { position: absolute; top: -28px; left: 4px; display: flex; align-items: center; gap: 0; height: 24px; background: var(--accent-color); color: #ffffff; font-size: 0.7rem; font-weight: 600; border-radius: 4px 4px 0 0; z-index: 100; white-space: nowrap; user-select: none; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
 .sel-badge__label { padding: 0 8px; line-height: 24px; text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.6rem; }
 .sel-badge__actions { display: flex; align-items: center; gap: 1px; border-left: 1px solid rgba(255,255,255,0.25); padding-left: 1px; }
 .sel-badge__btn { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 3px; cursor: pointer; transition: background 0.1s ease; font-size: 0.8rem; line-height: 1; }
