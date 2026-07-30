@@ -1,4 +1,4 @@
-import type { UIElement, TextProps, ButtonProps, ContainerProps, BaseStyleProps } from "../../core-schema/src";
+import type { UIElement, TextProps, ButtonProps, ContainerProps, BaseStyleProps } from "@fs-builder/core-schema";
 
 const getGlobalStyles = (): string => `
   body {

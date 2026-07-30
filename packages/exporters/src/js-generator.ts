@@ -1,4 +1,4 @@
-import type { UIElement, ButtonProps, InteractionProps, ClickAction } from "../../core-schema/src";
+import type { UIElement, ButtonProps, InteractionProps, ClickAction } from "@fs-builder/core-schema";
 
 // ═══════════════════════════════════════════════════════════════
 //  JS EVENT GENERATOR

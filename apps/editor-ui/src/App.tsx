@@ -91,6 +91,7 @@ function App() {
   const [showImport, setShowImport] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [viewPortDevice, setViewPortDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
 
   const addEl = (pid: string, ne: UIElement) => setSchema((p) => addRec(p, pid, ne));
   const updEl = (id: string, p: Partial<UIElement["props"]>) => setSchema((prev) => updRec(prev, id, p));
@@ -257,7 +258,7 @@ function App() {
       </aside>
 
       {/* ═══ CANVAS ═══ */}
-      <main className="editor-canvas"
+      <main className={`editor-canvas${effectiveTool === "hand" ? " editor-canvas--hand" : ""}${isPanning ? " editor-canvas--grabbing" : ""}`}
         ref={canvasRef} onClick={hCC}
         onMouseDown={hMD} onMouseMove={hMM}
         onMouseUp={hMU} onMouseLeave={hMU}
@@ -265,7 +266,7 @@ function App() {
         <div className="editor-canvas__viewport">
           <div className="canvas-grid">
             <div className="canvas-transform-layer" style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})` }}>
-              <div className="canvas-paper">
+              <div className={`canvas-paper canvas-paper--${viewPortDevice}`}>
                 <ElementRenderer element={schema} selectedElementId={selectedId} onSelect={handleSelect}
                   onQuickAdd={handleQuickAdd} onDuplicate={handleDup} onDelete={remEl} />
               </div>
@@ -292,6 +293,15 @@ function App() {
             <button className="canvas-dock__btn" onClick={hZR} title="Reset Zoom">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2"/><path d="M7 4V7L9 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
             </button>
+            <div className="canvas-dock__divider" />
+            <div className="canvas-dock__group">
+              <button className={`canvas-dock__btn${viewPortDevice === "mobile" ? " canvas-dock__btn--active" : ""}`}
+                onClick={() => setViewPortDevice("mobile")} title="Mobile (375px)">📱</button>
+              <button className={`canvas-dock__btn${viewPortDevice === "tablet" ? " canvas-dock__btn--active" : ""}`}
+                onClick={() => setViewPortDevice("tablet")} title="Tablet (768px)">📱</button>
+              <button className={`canvas-dock__btn${viewPortDevice === "desktop" ? " canvas-dock__btn--active" : ""}`}
+                onClick={() => setViewPortDevice("desktop")} title="Desktop">💻</button>
+            </div>
           </div>
         </div>
         <CodePanel schema={schema} />

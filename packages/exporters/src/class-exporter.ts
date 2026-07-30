@@ -1,4 +1,4 @@
-import type { UIElement, TextProps, ButtonProps } from "../../core-schema/src";
+import type { UIElement, TextProps, ButtonProps } from "@fs-builder/core-schema";
 import { generateJs } from "./js-generator";
 
 // ═══════════════════════════════════════════════════════════════

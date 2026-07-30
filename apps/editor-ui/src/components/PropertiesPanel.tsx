@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import type { UIElement, TextProps, ButtonProps, ContainerProps } from "@fs-builder/core-schema";
-import { tw } from "../utils/tw";
+import { tw, DISPLAY_GROUP, FLEX_DIR_GROUP, ALIGN_GROUP, JUSTIFY_GROUP, FONT_SIZE_GROUP, FONT_WEIGHT_GROUP, TEXT_ALIGN_GROUP } from "../utils/tw";
 
 interface PropertiesPanelProps {
   selectedElement: UIElement | null;
@@ -57,6 +57,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElemen
   const rawTw: string = (propsAny.tailwindClasses as string) ?? "";
   const isText = type === "text";
   const isButton = type === "button";
+  const textVal = isText ? (selectedElement.props as TextProps).text : isButton ? (selectedElement.props as ButtonProps).text : "";
 
   const setTw = (next: string) => onUpdate(id, { tailwindClasses: next } as Partial<TextProps & ButtonProps & ContainerProps>);
   const upd = (fn: (c: string) => string) => setTw(fn(rawTw));
@@ -68,13 +69,16 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElemen
   const padVal = tw.activeInGroup(rawTw, "p-") || "";
   const marVal = tw.activeInGroup(rawTw, "m-") || "";
 
+  // Determine which "Display" button is active: prefer flex, block, hidden in that order
+  const displayActive = tw.has(rawTw, "flex") ? "flex" : tw.has(rawTw, "hidden") ? "hidden" : tw.has(rawTw, "grid") ? "grid" : "block";
+
   return (
-    <div className="properties-panel-wrapper">
+    <div className="properties-panel-wrapper" key={id}>
       <h3>Properties</h3>
       <p className="properties-panel-id">ID: {id}</p>
       <hr className="properties-panel-divider" />
 
-      {/* Raw Tailwind classes textarea */}
+      {/* Raw Tailwind classes */}
       <div className="prop-field">
         <label className="prop-label">Tailwind Classes</label>
         <textarea className="prop-input prop-input--code" rows={3}
@@ -84,37 +88,39 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElemen
 
       {/* Layout */}
       <Section title="Layout">
-        <BtnGroup label="Display"
-          active={tw.has(rawTw, "flex") ? "flex" : tw.has(rawTw, "hidden") ? "hidden" : "block"}
+        <BtnGroup label="Display" active={displayActive}
           options={[
-            { value: "none", label: "✕" },
+            { value: "hidden", label: "✕" },
             { value: "block", label: "Block" },
             { value: "flex", label: "Flex" },
+            { value: "grid", label: "Grid" },
           ]}
-          onChange={(v) => {
-            if (v === "flex") upd((c) => tw.add(tw.remove(c, "hidden block"), "flex"));
-            else if (v === "block") upd((c) => tw.add(tw.remove(c, "flex hidden"), "block"));
-            else upd((c) => tw.add(tw.remove(c, "flex block"), "hidden"));
-          }}
-        />
+          onChange={(v) => upd((c) => tw.setGroupClass(c, DISPLAY_GROUP, v))} />
 
         {isFlex && (
           <>
             <BtnGroup label="Direction" active={flexDir}
-              options={[{ value: "flex-col", label: "↕" }, { value: "flex-row", label: "↔" }]}
-              onChange={(v) => upd((c) => tw.setPrefixed(c, "flex-", v === "flex-row" ? "row" : "col"))} />
+              options={[
+                { value: "flex-col", label: "↕" },
+                { value: "flex-row", label: "↔" },
+              ]}
+              onChange={(v) => upd((c) => tw.setGroupClass(c, FLEX_DIR_GROUP, v))} />
             <BtnGroup label="Align" active={alignVal}
               options={[
-                { value: "items-start", label: "Top" }, { value: "items-center", label: "Center" },
-                { value: "items-end", label: "Bottom" }, { value: "items-stretch", label: "Stretch" },
+                { value: "items-start", label: "Top" },
+                { value: "items-center", label: "Center" },
+                { value: "items-end", label: "Bottom" },
+                { value: "items-stretch", label: "Stretch" },
               ]}
-              onChange={(v) => upd((c) => tw.setPrefixed(c, "items-", v.replace("items-", "")))} />
+              onChange={(v) => upd((c) => tw.setGroupClass(c, ALIGN_GROUP, v))} />
             <BtnGroup label="Justify" active={justifyVal}
               options={[
-                { value: "justify-start", label: "Start" }, { value: "justify-center", label: "Center" },
-                { value: "justify-end", label: "End" }, { value: "justify-between", label: "Between" },
+                { value: "justify-start", label: "Start" },
+                { value: "justify-center", label: "Center" },
+                { value: "justify-end", label: "End" },
+                { value: "justify-between", label: "Between" },
               ]}
-              onChange={(v) => upd((c) => tw.setPrefixed(c, "justify-", v.replace("justify-", "")))} />
+              onChange={(v) => upd((c) => tw.setGroupClass(c, JUSTIFY_GROUP, v))} />
           </>
         )}
       </Section>
@@ -142,14 +148,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElemen
       {/* Typography */}
       {(isText || isButton) && (
         <Section title="Typography">
-          {isText && (
-            <Inp id="txt-content" label="Content" value={(selectedElement.props as TextProps).text}
-              onChange={(v) => onUpdate(id, { text: v })} />
-          )}
-          {isButton && (
-            <Inp id="btn-label" label="Label" value={(selectedElement.props as ButtonProps).text}
-              onChange={(v) => onUpdate(id, { text: v })} />
-          )}
+          <Inp id="txt-content" label={isText ? "Content" : "Label"} value={textVal}
+            onChange={(v) => onUpdate(id, { text: v })} />
           <BtnGroup label="Size"
             active={tw.activeInGroup(rawTw, "text-")}
             options={[
@@ -157,23 +157,24 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElemen
               { value: "text-base", label: "Base" }, { value: "text-lg", label: "LG" },
               { value: "text-xl", label: "XL" }, { value: "text-2xl", label: "2XL" },
             ]}
-            onChange={(v) => upd((c) => tw.setPrefixed(c, "text-", v.replace("text-", "")))} />
+            onChange={(v) => upd((c) => tw.setGroupClass(c, FONT_SIZE_GROUP, v))} />
           <BtnGroup label="Weight"
             active={tw.activeInGroup(rawTw, "font-")}
             options={[
-              { value: "font-normal", label: "N" }, { value: "font-medium", label: "M" }, { value: "font-bold", label: "B" },
+              { value: "font-normal", label: "N" }, { value: "font-medium", label: "M" },
+              { value: "font-bold", label: "B" },
             ]}
-            onChange={(v) => upd((c) => tw.setPrefixed(c, "font-", v.replace("font-", "")))} />
+            onChange={(v) => upd((c) => tw.setGroupClass(c, FONT_WEIGHT_GROUP, v))} />
           <BtnGroup label="Align"
             active={tw.activeInGroup(rawTw, "text-")}
             options={[
               { value: "text-left", label: "L" }, { value: "text-center", label: "C" }, { value: "text-right", label: "R" },
             ]}
-            onChange={(v) => upd((c) => tw.setPrefixed(c, "text-", v.replace("text-", "")))} />
+            onChange={(v) => upd((c) => tw.setGroupClass(c, TEXT_ALIGN_GROUP, v))} />
         </Section>
       )}
 
-      {/* Colors */}
+      {/* Colors — use setPrefixed for bg-* and text-* prefixes */}
       <Section title="Colors" defaultOpen={false}>
         <label className="prop-label">Background</label>
         <div className="prop-btn-group" style={{ marginBottom: 8 }}>
@@ -184,7 +185,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElemen
           ].map((opt) => (
             <button key={opt.v}
               className={`prop-btn-group__btn${tw.has(rawTw, opt.v) ? " prop-btn-group__btn--active" : ""}`}
-              onClick={() => upd((c) => tw.toggle(c, opt.v))} type="button">{opt.l}</button>
+              onClick={() => upd((c) => tw.setGroupClass(c, ["bg-white", "bg-gray-100", "bg-gray-200", "bg-gray-800", "bg-zinc-900", "bg-blue-600", "bg-red-500", "bg-green-500"], tw.has(rawTw, opt.v) ? "" : opt.v))}
+              type="button">{opt.l}</button>
           ))}
         </div>
         <label className="prop-label">Text Color</label>
@@ -195,7 +197,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElemen
           ].map((opt) => (
             <button key={opt.v}
               className={`prop-btn-group__btn${tw.has(rawTw, opt.v) ? " prop-btn-group__btn--active" : ""}`}
-              onClick={() => upd((c) => tw.toggle(c, opt.v))} type="button">{opt.l}</button>
+              onClick={() => upd((c) => tw.setGroupClass(c, ["text-white", "text-gray-900", "text-gray-700", "text-gray-500", "text-blue-600", "text-red-500"], tw.has(rawTw, opt.v) ? "" : opt.v))}
+              type="button">{opt.l}</button>
           ))}
         </div>
       </Section>

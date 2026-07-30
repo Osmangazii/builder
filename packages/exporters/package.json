@@ -2,5 +2,8 @@
   "name": "@fs-builder/exporters",
   "version": "1.0.0",
   "main": "src/index.ts",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@fs-builder/core-schema": "workspace:*"
+  }
 }
