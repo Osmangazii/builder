@@ -57,7 +57,63 @@
 .editor-canvas--grabbing .editor-canvas__viewport, .editor-canvas--grabbing .editor-canvas__viewport * { cursor: grabbing !important; }
 .canvas-grid { position: absolute; inset: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; background-image: radial-gradient(circle, var(--canvas-border) 1px, transparent 1px); background-size: 20px 20px; }
 .canvas-transform-layer { width: 100%; min-width: 0; transform-origin: center center; transition: transform 0.05s ease; }
-.canvas-paper { container-type: inline-size; min-height: 600px; background: var(--canvas-surface); border-radius: 0; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08); padding: 0; transition: width 0.3s ease-in-out, max-width 0.3s ease-in-out; }
+.canvas-paper { container-type: inline-size; min-height: 600px; background: var(--canvas-surface); border-radius: 0; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08); padding: 0; transition: width 0.3s ease-in-out, max-width 0.3s ease-in-out, min-height 0.3s ease-in-out, height 0.3s ease-in-out; }
+
+/* In play mode the height is strictly set by inline style, so we nullify min-height */
+.canvas-paper--play { min-height: 0 !important; }
+
+/* ── Play mode device shells ──────────────────────────────────── */
+.canvas-dock__preset { appearance: none; background: transparent; border: 1px solid #27272a; border-radius: 6px; color: #f4f4f5; font-size: 0.7rem; font-family: inherit; padding: 3px 6px; cursor: pointer; outline: none; min-width: 90px; }
+.canvas-dock__preset:hover { border-color: #3b82f6; }
+.canvas-dock__dim-input { width: 50px; padding: 3px 4px; border: 1px solid #27272a; border-radius: 4px; background: transparent; color: #f4f4f5; font-size: 0.72rem; font-family: inherit; text-align: center; outline: none; }
+.canvas-dock__dim-input:focus { border-color: #3b82f6; }
+.canvas-dock__dim-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.canvas-dock__dim-input[type=number] { -moz-appearance: textfield; }
+.canvas-dock__dim-sep { color: #52525b; font-size: 0.65rem; }
+
+/* ── Play mode device shell ──────────────────────────────────── */
+.canvas-paper--play {
+  position: relative;
+  border-radius: 44px;
+  box-shadow:
+    0 0 0 6px #1a1a1a,
+    0 0 0 8px #2a2a2a,
+    0 20px 60px rgba(0,0,0,0.45);
+  /* Internal scroll: fully functional but scrollbar is hidden for a clean device shell aesthetic */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.canvas-paper--play::-webkit-scrollbar {
+  display: none;
+}
+/* Notch (mobile style) */
+.canvas-paper--play::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 28px;
+  background: #1a1a1a;
+  border-radius: 20px;
+  z-index: 999;
+  pointer-events: none;
+}
+/* Bottom bar */
+.canvas-paper--play::after {
+  content: "";
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 134px;
+  height: 4px;
+  background: #1a1a1a;
+  border-radius: 3px;
+  z-index: 999;
+  pointer-events: none;
+}
 .canvas-paper--mobile { width: 375px; max-width: 375px; }
 .canvas-paper--tablet { width: 768px; max-width: 768px; }
 .canvas-paper--desktop { width: 100%; max-width: 1280px; margin: 0 auto; }

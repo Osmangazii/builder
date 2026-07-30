@@ -12,6 +12,8 @@ interface ElementRendererProps {
   viewportMode?: "desktop" | "tablet" | "mobile";
   /** Called when an element with interactions is clicked in the canvas */
   onInteraction?: (sourceId: string, interactions: ElementInteraction[]) => void;
+  /** When true, hide all selection UI and run interactions directly */
+  playMode?: boolean;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -140,7 +142,8 @@ function isUtilityElement(element: UIElement): boolean {
 // ── Main Renderer ─────────────────────────────────────────────
 
 export const ElementRenderer: React.FC<ElementRendererProps> = ({
-  element, selectedElementId, onSelect, onQuickAdd, onDuplicate, onDelete, viewportMode = "desktop", onInteraction,
+  element, selectedElementId, onSelect, onQuickAdd, onDuplicate, onDelete,
+  viewportMode = "desktop", onInteraction, playMode = false,
 }) => {
   if (!element) return null;
 
@@ -153,8 +156,8 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
   const interactions: ElementInteraction[] | undefined =
     (element.props as Record<string, unknown>).interactions as ElementInteraction[] | undefined;
 
-  // Utility elements get a subtle dashed outline; main elements get full solid + offset
-  const selectionStyle: React.CSSProperties = isSelected
+  // In play mode, hide all selection UI; in edit mode use normal styling
+  const selectionStyle: React.CSSProperties = !playMode && isSelected
     ? isUtility
       ? { outline: "1px dashed #3b82f680", outlineOffset: 0 }
       : { outline: "2px solid #3b82f6", outlineOffset: "1px" }
@@ -162,12 +165,19 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    onSelect(id);
-    // If this element has interactions and an interaction handler is wired, fire it
-    if (interactions && interactions.length > 0 && onInteraction) {
-      onInteraction(id, interactions);
+    if (playMode) {
+      // Play mode: fire interactions directly without selecting
+      if (interactions && interactions.length > 0 && onInteraction) {
+        onInteraction(id, interactions);
+      }
+    } else {
+      // Edit mode: select then fire interactions
+      onSelect(id);
+      if (interactions && interactions.length > 0 && onInteraction) {
+        onInteraction(id, interactions);
+      }
     }
-  }, [id, onSelect, interactions, onInteraction]);
+  }, [id, playMode, onSelect, interactions, onInteraction]);
 
   const tw = resolveClasses(element, viewportMode);
 
@@ -179,13 +189,13 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
           onClick={handleClick}
           className={tw}
           style={{
-            position: "relative",
-            cursor: "pointer",
-            ...(isRoot ? { outline: "1px solid #d0d5dd" } : {}),
+            position: playMode ? "" : "relative",
+            cursor: playMode ? "auto" : "pointer",
+            ...(!playMode && isRoot ? { outline: "1px solid #d0d5dd" } : {}),
             ...selectionStyle,
           }}
         >
-          {isSelected && !isUtility && (
+          {!playMode && isSelected && !isUtility && (
             <SelectionBadge element={element} onQuickAdd={onQuickAdd} onDuplicate={onDuplicate} onDelete={onDelete} />
           )}
           {children.length > 0 ? (
@@ -193,10 +203,11 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
               <ElementRenderer key={child.id} element={child}
                 selectedElementId={selectedElementId} onSelect={onSelect}
                 onQuickAdd={onQuickAdd} onDuplicate={onDuplicate} onDelete={onDelete}
-                viewportMode={viewportMode} onInteraction={onInteraction} />
+                viewportMode={viewportMode} onInteraction={onInteraction}
+                playMode={playMode} />
             ))
           ) : (
-            <div style={{ minHeight: "20px", backgroundColor: "#f0f0f0" }} />
+            !playMode && <div style={{ minHeight: "20px", backgroundColor: "#f0f0f0" }} />
           )}
         </div>
       );
@@ -207,9 +218,9 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
           data-id={id}
           onClick={handleClick}
           className={tw}
-          style={{ position: "relative", cursor: "pointer", ...selectionStyle }}
+          style={{ position: playMode ? "" : "relative", cursor: playMode ? "auto" : "pointer", ...selectionStyle }}
         >
-          {isSelected && !isUtility && (
+          {!playMode && isSelected && !isUtility && (
             <SelectionBadge element={element} onQuickAdd={onQuickAdd} onDuplicate={onDuplicate} onDelete={onDelete} />
           )}
           {(element.props as TextProps).text || "Default Text"}
@@ -222,9 +233,9 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
           data-id={id}
           onClick={handleClick}
           className={tw}
-          style={{ position: "relative", cursor: "pointer", ...selectionStyle }}
+          style={{ position: playMode ? "" : "relative", cursor: playMode ? "pointer" : "pointer", ...selectionStyle }}
         >
-          {isSelected && !isUtility && (
+          {!playMode && isSelected && !isUtility && (
             <SelectionBadge element={element} onQuickAdd={onQuickAdd} onDuplicate={onDuplicate} onDelete={onDelete} />
           )}
           {(element.props as ButtonProps).text || "Default Button"}

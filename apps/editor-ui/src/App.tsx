@@ -121,7 +121,49 @@ function App() {
   const [showImport, setShowImport] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
-  const [viewPortDevice, setViewPortDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  // ── Resolution presets ─────────────────────────────────────────
+  const VIEWPORT_PRESETS = {
+    "Mobile 375×812": { w: 375, h: 812 },
+    "Mobile 390×844": { w: 390, h: 844 },
+    "Mobile 430×932": { w: 430, h: 932 },
+    "Tablet 768×1024": { w: 768, h: 1024 },
+    "Tablet 1024×1366": { w: 1024, h: 1366 },
+    "Desktop 1280×720": { w: 1280, h: 720 },
+    "Desktop 1440×900": { w: 1440, h: 900 },
+    "Desktop 1920×1080": { w: 1920, h: 1080 },
+  };
+
+  const [canvasWidth, setCanvasWidth] = useState(0);
+  const [canvasHeight, setCanvasHeight] = useState(0);
+  const [activePreset, setActivePreset] = useState<string>("");
+  const [playMode, setPlayMode] = useState(false);
+
+  const applyPreset = useCallback((name: string) => {
+    const p = VIEWPORT_PRESETS[name as keyof typeof VIEWPORT_PRESETS];
+    if (p) {
+      setCanvasWidth(p.w);
+      setCanvasHeight(p.h);
+      setActivePreset(name);
+    }
+  }, []);
+
+  const swapDimensions = useCallback(() => {
+    const w = canvasWidth;
+    const h = canvasHeight;
+    setCanvasWidth(h);
+    setCanvasHeight(w);
+  }, [canvasWidth, canvasHeight]);
+
+  // Desktop: width 0 means full viewport
+  const effectiveWidth = canvasWidth > 0 ? canvasWidth : 0;
+  const effectiveHeight = canvasHeight > 0 ? canvasHeight : 0;
+
+  // Derive viewport mode for responsive class filtering
+  const viewportMode: "desktop" | "tablet" | "mobile" =
+    effectiveWidth === 0 ? "desktop" :
+    effectiveWidth <= 430 ? "mobile" :
+    effectiveWidth <= 1024 ? "tablet" :
+    "desktop";
   const paperRef = useRef<HTMLDivElement>(null);
 
   const addEl = (pid: string, ne: UIElement) => setSchema((p) => addRec(p, pid, ne));
@@ -355,10 +397,19 @@ function App() {
         <div className="editor-canvas__viewport">
           <div className="canvas-grid">
             <div className="canvas-transform-layer" style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})` }}>
-              <div className={`canvas-paper canvas-paper--${viewPortDevice}`}>
+              <div className={`canvas-paper${playMode && effectiveWidth > 0 ? " canvas-paper--play" : ""}`}
+                style={{
+                  ...(effectiveWidth > 0 ? { width: effectiveWidth, maxWidth: effectiveWidth } : {}),
+                  ...(effectiveHeight > 0
+                    ? playMode
+                      ? { height: effectiveHeight, overflowY: "auto", overflowX: "hidden" }
+                      : { minHeight: effectiveHeight }
+                    : {}),
+                }}>
                 <ElementRenderer element={schema} selectedElementId={selectedId} onSelect={handleSelect}
                   onQuickAdd={handleQuickAdd} onDuplicate={handleDup} onDelete={remEl}
-                  viewportMode={viewPortDevice} onInteraction={handleInteraction} />
+                  viewportMode={viewportMode} onInteraction={handleInteraction}
+                  playMode={playMode} />
               </div>
             </div>
           </div>
@@ -383,22 +434,54 @@ function App() {
             <button className="canvas-dock__btn" onClick={hZR} title="Reset Zoom">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2"/><path d="M7 4V7L9 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
             </button>
+            {/* Device preset icons */}
+            <div className="canvas-dock__group">
+              <button className={`canvas-dock__btn${canvasWidth === 375 ? " canvas-dock__btn--active" : ""}`}
+                onClick={() => { setCanvasWidth(375); setCanvasHeight(812); setActivePreset(""); }} title="Mobile 375×812">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              </button>
+              <button className={`canvas-dock__btn${canvasWidth === 768 ? " canvas-dock__btn--active" : ""}`}
+                onClick={() => { setCanvasWidth(768); setCanvasHeight(1024); setActivePreset(""); }} title="Tablet 768×1024">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              </button>
+              <button className={`canvas-dock__btn${canvasWidth === 0 ? " canvas-dock__btn--active" : ""}`}
+                onClick={() => { setCanvasWidth(0); setCanvasHeight(0); setActivePreset(""); }} title="Desktop (full width)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              </button>
+            </div>
             <div className="canvas-dock__divider" />
-            <div className="canvas-dock__group canvas-dock__group--devices">
-              <button className={`canvas-dock__btn canvas-dock__btn--device${viewPortDevice === "mobile" ? " canvas-dock__btn--active" : ""}`}
-                onClick={() => setViewPortDevice("mobile")} title="Mobile (375px)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+            {/* W / H inputs */}
+            <div className="canvas-dock__group" style={{ gap: 3 }}>
+              <input className="canvas-dock__dim-input" type="number" min={0} max={9999}
+                value={canvasWidth || ""}
+                onChange={(e) => { setCanvasWidth(Number(e.target.value) || 0); setActivePreset(""); }}
+                placeholder="W" title="Width (px)" />
+              <span className="canvas-dock__dim-sep">×</span>
+              <input className="canvas-dock__dim-input" type="number" min={0} max={9999}
+                value={canvasHeight || ""}
+                onChange={(e) => { setCanvasHeight(Number(e.target.value) || 0); setActivePreset(""); }}
+                placeholder="H" title="Height (px)" />
+              <button className="canvas-dock__btn" onClick={swapDimensions} title="Swap W/H"
+                style={{ fontSize: "0.7rem", width: 24, height: 22 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 16l-4-4 4-4"/><path d="M17 8l4 4-4 4"/><path d="M3 12h18"/>
+                </svg>
               </button>
-              <button className={`canvas-dock__btn canvas-dock__btn--device${viewPortDevice === "tablet" ? " canvas-dock__btn--active" : ""}`}
-                onClick={() => setViewPortDevice("tablet")} title="Tablet (768px)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+            </div>
+            <div className="canvas-dock__divider" />
+            {/* Play Mode toggle */}
+            <div className="canvas-dock__group">
+              <button className={`canvas-dock__btn${!playMode ? " canvas-dock__btn--active" : ""}`}
+                onClick={() => setPlayMode(false)} title="Edit Mode">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
               </button>
-              <button className={`canvas-dock__btn canvas-dock__btn--device${viewPortDevice === "desktop" ? " canvas-dock__btn--active" : ""}`}
-                onClick={() => setViewPortDevice("desktop")} title="Desktop">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              <button className={`canvas-dock__btn${playMode ? " canvas-dock__btn--active" : ""}`}
+                onClick={() => setPlayMode(true)} title="Play Mode">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               </button>
             </div>
           </div>
+          {/* ═══ close editor-canvas__viewport ═══ */}
         </div>
         <CodePanel schema={schema} />
       </main>
