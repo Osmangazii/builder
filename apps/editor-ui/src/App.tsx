@@ -294,13 +294,19 @@ function App() {
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2"/><path d="M7 4V7L9 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
             </button>
             <div className="canvas-dock__divider" />
-            <div className="canvas-dock__group">
-              <button className={`canvas-dock__btn${viewPortDevice === "mobile" ? " canvas-dock__btn--active" : ""}`}
-                onClick={() => setViewPortDevice("mobile")} title="Mobile (375px)">📱</button>
-              <button className={`canvas-dock__btn${viewPortDevice === "tablet" ? " canvas-dock__btn--active" : ""}`}
-                onClick={() => setViewPortDevice("tablet")} title="Tablet (768px)">📱</button>
-              <button className={`canvas-dock__btn${viewPortDevice === "desktop" ? " canvas-dock__btn--active" : ""}`}
-                onClick={() => setViewPortDevice("desktop")} title="Desktop">💻</button>
+            <div className="canvas-dock__group canvas-dock__group--devices">
+              <button className={`canvas-dock__btn canvas-dock__btn--device${viewPortDevice === "mobile" ? " canvas-dock__btn--active" : ""}`}
+                onClick={() => setViewPortDevice("mobile")} title="Mobile (375px)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              </button>
+              <button className={`canvas-dock__btn canvas-dock__btn--device${viewPortDevice === "tablet" ? " canvas-dock__btn--active" : ""}`}
+                onClick={() => setViewPortDevice("tablet")} title="Tablet (768px)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              </button>
+              <button className={`canvas-dock__btn canvas-dock__btn--device${viewPortDevice === "desktop" ? " canvas-dock__btn--active" : ""}`}
+                onClick={() => setViewPortDevice("desktop")} title="Desktop">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              </button>
             </div>
           </div>
         </div>

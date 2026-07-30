@@ -61,13 +61,17 @@
 .canvas-paper--mobile { width: 375px; max-width: 375px; }
 .canvas-paper--tablet { width: 768px; max-width: 768px; }
 .canvas-paper--desktop { width: 100%; max-width: 1280px; }
-.canvas-dock { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 2px; padding: 4px 6px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 10px; box-shadow: var(--shadow-md); z-index: 20; }
-.canvas-dock__group { display: flex; align-items: center; gap: 2px; }
-.canvas-dock__divider { width: 1px; height: 22px; background: var(--border-color); margin: 0 4px; }
-.canvas-dock__btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 28px; padding: 0; border: none; border-radius: 6px; background: transparent; color: var(--text-muted); font-size: 1rem; font-family: inherit; cursor: pointer; transition: all 0.12s ease; outline: none; }
-.canvas-dock__btn:hover { background: var(--bg-hover); color: var(--text-main); }
-.canvas-dock__btn--active { background: var(--accent-color); color: #ffffff; }
-.canvas-dock__label { font-size: 0.72rem; font-weight: 600; color: var(--text-dim); min-width: 36px; text-align: center; user-select: none; }
+.canvas-dock { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 3px; padding: 5px 8px; background: rgba(9, 9, 11, 0.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid #27272a; border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3); z-index: 20; }
+.canvas-dock__group { display: flex; align-items: center; gap: 3px; }
+.canvas-dock__group--devices { background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(39, 39, 42, 0.5); border-radius: 9999px; padding: 2px; }
+.canvas-dock__divider { width: 1px; height: 22px; background: #27272a; margin: 0 5px; }
+.canvas-dock__btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 28px; padding: 0; border: none; border-radius: 6px; background: transparent; color: #a1a1aa; font-size: 1rem; font-family: inherit; cursor: pointer; transition: all 0.15s ease; outline: none; }
+.canvas-dock__btn:hover { background: rgba(39, 39, 42, 0.8); color: #f4f4f5; }
+.canvas-dock__btn--active { background: #3b82f6; color: #ffffff; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35); }
+.canvas-dock__btn--active:hover { background: #2563eb; }
+.canvas-dock__btn--device { width: 30px; height: 26px; border-radius: 9999px; }
+.canvas-dock__btn--device.canvas-dock__btn--active { background: #3b82f6; color: #ffffff; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35); }
+.canvas-dock__label { font-size: 0.72rem; font-weight: 600; color: #a1a1aa; min-width: 36px; text-align: center; user-select: none; }
 
 .sel-badge { position: absolute; top: -28px; left: -2px; display: flex; align-items: center; gap: 0; height: 24px; background: var(--accent-color); color: #ffffff; font-size: 0.7rem; font-weight: 600; border-radius: 4px 4px 0 0; z-index: 100; white-space: nowrap; user-select: none; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
 .sel-badge__label { padding: 0 8px; line-height: 24px; text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.6rem; }
