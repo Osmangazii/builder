@@ -8,11 +8,13 @@ interface ImportModalProps {
 
 export const ImportModal: React.FC<ImportModalProps> = ({ open, onClose, onImport }) => {
   const [html, setHtml] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   if (!open) return null;
 
   const handleImport = () => {
     if (!html.trim()) return;
+    setError(null);
     onImport(html);
     setHtml("");
   };
@@ -36,10 +38,15 @@ export const ImportModal: React.FC<ImportModalProps> = ({ open, onClose, onImpor
           className="import-modal__textarea"
           rows={10}
           value={html}
-          onChange={(e) => setHtml(e.target.value)}
+          onChange={(e) => { setHtml(e.target.value); setError(null); }}
           placeholder={`<div class="flex items-center gap-4 p-4 bg-white rounded-lg shadow">\n  <p class="text-lg font-medium">Hello</p>\n  <button class="bg-blue-600 text-white px-4 py-2 rounded">Click</button>\n</div>`}
           spellCheck={false}
         />
+        {error && (
+          <p style={{ padding: "0 16px", fontSize: "0.78rem", color: "var(--danger-color)", margin: "4px 0 0" }}>
+            {error}
+          </p>
+        )}
         <div className="import-modal__actions">
           <button className="editor-btn" onClick={handleCancel}>Cancel</button>
           <button className="editor-btn editor-btn-primary" onClick={handleImport} disabled={!html.trim()}>

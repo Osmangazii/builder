@@ -1,28 +1,37 @@
-import type { UIElement, ButtonProps, InteractionProps, ClickAction } from "@fs-builder/core-schema";
+import type { UIElement, ElementInteraction } from "@fs-builder/core-schema";
 
 // ═══════════════════════════════════════════════════════════════
 //  JS EVENT GENERATOR
+//  Reads the new `interactions[]` array from element props.
 // ═══════════════════════════════════════════════════════════════
 
 interface JsHandler {
-  selector: string;
-  action: ClickAction;
-  value: string;
+  sourceId: string;
+  targetId: string;
+  action: string;
+  className: string;
 }
 
-function collectHandlers(schema: UIElement, classMap: Map<string, string>): JsHandler[] {
+function collectHandlers(schema: UIElement): JsHandler[] {
   const handlers: JsHandler[] = [];
 
   function walk(el: UIElement) {
-    if (el.type === "button") {
-      const p = el.props as ButtonProps;
-      const action = p.onClickType || "none";
-      if (action !== "none") {
-        const className = classMap.get(el.id);
-        const selector = className ? `.${className}` : `[data-id="${el.id}"]`;
-        handlers.push({ selector, action, value: p.onClickValue || "" });
+    const interactions: ElementInteraction[] | undefined =
+      (el.props as Record<string, unknown>).interactions as ElementInteraction[] | undefined;
+
+    if (interactions) {
+      for (const ix of interactions) {
+        if (ix.action === "toggleClass" && ix.targetElementId) {
+          handlers.push({
+            sourceId: el.id,
+            targetId: ix.targetElementId,
+            action: ix.action,
+            className: ix.className || "hidden",
+          });
+        }
       }
     }
+
     if ("children" in el && el.children.length > 0) {
       for (const child of el.children) walk(child);
     }
@@ -34,59 +43,40 @@ function collectHandlers(schema: UIElement, classMap: Map<string, string>): JsHa
 
 // ═══════════════════════════════════════════════════════════════
 //  JS CODE GENERATOR
+//  Produces clean, zero-dependency vanilla JavaScript using
+//  document.getElementById() for element lookups.
 // ═══════════════════════════════════════════════════════════════
 
 function generateJsFromHandlers(handlers: JsHandler[]): string {
   if (handlers.length === 0) {
-    return `// No interactive elements found
+    return `// No interactive elements found — page is static.
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('FS-Builder page loaded');
+  console.log('FS-Builder page loaded successfully.');
 });`;
   }
 
   const lines: string[] = [];
+  lines.push("/**");
+  lines.push(" * FS-Builder — Auto-generated interactive behaviors.");
+  lines.push(" * Toggles CSS classes on target elements when source elements are clicked.");
+  lines.push(" */");
   lines.push("document.addEventListener('DOMContentLoaded', () => {");
 
-  for (const handler of handlers) {
-    const el = `document.querySelector('${handler.selector}')`;
+  for (const h of handlers) {
+    const src = `document.getElementById('${h.sourceId}')`;
+    const tgt = `document.getElementById('${h.targetId}')`;
+    const safeCls = JSON.stringify(h.className || "hidden");
 
-    switch (handler.action) {
-      case "alert":
-        lines.push(`  const btn = ${el};`);
-        lines.push(`  if (btn) {`);
-        lines.push(`    btn.addEventListener('click', () => {`);
-        lines.push(`      alert(${JSON.stringify(handler.value || "Hello!")});`);
-        lines.push(`    });`);
-        lines.push(`  }`);
-        break;
-
-      case "toggle-class":
-        lines.push(`  const btn = ${el};`);
-        lines.push(`  if (btn) {`);
-        lines.push(`    btn.addEventListener('click', () => {`);
-        lines.push(`      btn.classList.toggle(${JSON.stringify(handler.value || "active")});`);
-        lines.push(`    });`);
-        lines.push(`  }`);
-        break;
-
-      case "navigate":
-        lines.push(`  const btn = ${el};`);
-        lines.push(`  if (btn) {`);
-        lines.push(`    btn.addEventListener('click', () => {`);
-        lines.push(`      window.location.href = ${JSON.stringify(handler.value || "#")};`);
-        lines.push(`    });`);
-        lines.push(`  }`);
-        break;
-
-      case "custom":
-        lines.push(`  const btn = ${el};`);
-        lines.push(`  if (btn) {`);
-        lines.push(`    btn.addEventListener('click', () => {`);
-        lines.push(`      ${handler.value || "console.log('clicked')"}`);
-        lines.push(`    });`);
-        lines.push(`  }`);
-        break;
-    }
+    // Wrap each handler in its own block to prevent const redeclaration errors
+    lines.push(`  {`);
+    lines.push(`    const srcEl = ${src};`);
+    lines.push(`    const tgtEl = ${tgt};`);
+    lines.push(`    if (srcEl && tgtEl) {`);
+    lines.push(`      srcEl.addEventListener('click', () => {`);
+    lines.push(`        tgtEl.classList.toggle(${safeCls});`);
+    lines.push(`      });`);
+    lines.push(`    }`);
+    lines.push(`  }`);
   }
 
   lines.push("});");
@@ -97,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
 //  PUBLIC API
 // ═══════════════════════════════════════════════════════════════
 
-export function generateJs(schema: UIElement, classMap: Map<string, string>): string {
-  const handlers = collectHandlers(schema, classMap);
+export function generateJs(schema: UIElement): string {
+  const handlers = collectHandlers(schema);
   return generateJsFromHandlers(handlers);
 }

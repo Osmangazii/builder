@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { UIElement, ElementType } from "@fs-builder/core-schema";
-import { exportToHtml, generateClassExport } from "@fs-builder/exporters";
+import type { UIElement, ElementType, ElementInteraction } from "@fs-builder/core-schema";
+import { generateClassExport } from "@fs-builder/exporters";
 import JSZip from "jszip";
 import "./App.css";
 import { ElementRenderer } from "./components/ElementRenderer";
@@ -37,6 +37,36 @@ const generateId = (type: ElementType) => `${type}-${Math.random().toString(36).
 
 function countElements(e: UIElement): number {
   let c = 1; if ("children" in e && e.children.length > 0) for (const ch of e.children) c += countElements(ch); return c;
+}
+
+export interface FlatElementInfo {
+  id: string;
+  label: string;
+  /** True if the element has a meaningful (non-auto-generated) ID */
+  hasMeaningfulId: boolean;
+  /** True if the element's tailwindClasses include "hidden" */
+  hasHidden: boolean;
+  type: string;
+}
+
+/** Flatten the element tree into a rich list for the interaction target picker. */
+function flattenElements(e: UIElement): FlatElementInfo[] {
+  const result: FlatElementInfo[] = [];
+  function walk(el: UIElement) {
+    const tw = (el.props as Record<string, unknown>).tailwindClasses as string ?? "";
+    // An ID is "meaningful" if it doesn't match the auto-generated pattern
+    const hasMeaningfulId = !/^\w+-imported-\d+-[a-z0-9]{4}$/.test(el.id);
+    const hasHidden = /(?:^|\s)hidden(?:$|\s)/.test(tw);
+    const label = el.type === "text" || el.type === "button"
+      ? `${el.type}: ${(el.props as Record<string, unknown>).text ?? el.id}`
+      : `${el.type}: ${el.id}`;
+    result.push({ id: el.id, label, hasMeaningfulId, hasHidden, type: el.type });
+    if ("children" in el && el.children.length > 0) {
+      for (const ch of el.children) walk(ch);
+    }
+  }
+  walk(e);
+  return result;
 }
 function findById(e: UIElement, id: string): UIElement | null {
   if (e.id === id) return e; if ("children" in e && e.children) for (const c of e.children) { const f = findById(c, id); if (f) return f; } return null;
@@ -145,25 +175,67 @@ function App() {
   const handleImport = useCallback((html: string) => {
     const imported = parseHtmlToSchema(html);
     if (!imported) return;
-    const sel = selectedId ? findById(schema, selectedId) : null;
-    if (sel && sel.type === "container" && sel.id !== schema.id) addEl(sel.id, imported);
-    else setSchema((prev) => addRec(prev, schema.id, imported));
+    // Use functional setState to avoid stale closures. Always attach to
+    // root container if no valid container is selected (handles page refresh case).
+    setSchema((prev) => {
+      // Determine target container ID based on CURRENT state
+      let targetId = prev.id; // root container
+      if (selectedId) {
+        const sel = findById(prev, selectedId);
+        if (sel && sel.type === "container" && sel.id !== prev.id) {
+          targetId = sel.id;
+        }
+      }
+      return addRec(prev, targetId, imported);
+    });
     setSelectedId(imported.id);
     setShowImport(false);
-  }, [schema, selectedId]);
+  }, [selectedId]);
 
-  const handleExportHtml = () => {
-    const html = exportToHtml(schema); const blob = new Blob([html], { type: "text/html" });
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+
+  const handleExportHtml = useCallback(() => {
+    const { html } = generateClassExport(schema);
+    const blob = new Blob([html], { type: "text/html" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "exported-page.html";
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  };
+    setExportStatus("HTML exported!");
+    setTimeout(() => setExportStatus(null), 2000);
+  }, [schema]);
 
   const handleExportProject = useCallback(async () => {
-    const { html, js } = generateClassExport(schema);
-    const zip = new JSZip(); zip.file("index.html", html); zip.file("script.js", js);
+    setExportStatus("Generating project…");
+    // Yield to the event loop so the UI updates before the synchronous zip generation
+    await new Promise((r) => setTimeout(r, 30));
+    const { files } = generateClassExport(schema);
+    const zip = new JSZip();
+    for (const [filePath, content] of Object.entries(files)) {
+      zip.file(filePath, content);
+    }
     const blob = await zip.generateAsync({ type: "blob" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "fs-builder-project.zip";
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setExportStatus("Project exported!");
+    setTimeout(() => setExportStatus(null), 2500);
+  }, [schema]);
+
+  // ── Interaction handler ───────────────────────────────────────
+  // Called by ElementRenderer when a user clicks an element withinteractions.
+  const handleInteraction = useCallback((sourceId: string, interactions: ElementInteraction[]) => {
+    for (const ix of interactions) {
+      if (ix.action === "toggleClass") {
+        // Find and toggle the class on the target element's tailwindClasses
+        const target = findById(schema, ix.targetElementId);
+        if (!target) continue;
+        const currentTw = ((target.props as Record<string, unknown>).tailwindClasses as string) ?? "";
+        const cls = ix.className || "hidden";
+        const classes = currentTw.split(/\s+/).filter(Boolean);
+        const newTw = classes.includes(cls)
+          ? classes.filter((c) => c !== cls).join(" ")
+          : [...classes, cls].join(" ");
+        updEl(ix.targetElementId, { tailwindClasses: newTw } as Partial<UIElement["props"]>);
+      }
+    }
   }, [schema]);
 
   const toggleTheme = useCallback(() => setTheme((p) => (p === "dark" ? "light" : "dark")), []);
@@ -215,6 +287,7 @@ function App() {
   const hCC = useCallback((e: React.MouseEvent) => { if (effectiveTool === "select" && e.target === e.currentTarget) setSelectedId(null); }, [effectiveTool]);
 
   const selectedEl = selectedId ? findById(schema, selectedId) : null;
+  const allElements = flattenElements(schema);
 
   return (
     <div className="editor-layout" data-theme={theme}>
@@ -226,9 +299,16 @@ function App() {
           </div>
         </div>
         <div className="editor-header-right">
+          {exportStatus && (
+            <span style={{
+              fontSize: "0.75rem", color: "var(--accent-color)", fontWeight: 600,
+              padding: "4px 8px", background: "var(--bg-hover)", borderRadius: 6,
+              whiteSpace: "nowrap",
+            }}>{exportStatus}</span>
+          )}
           <button className="editor-btn" onClick={handleExportHtml} title="Download HTML file">⬇ Export HTML</button>
           <button className="editor-btn editor-btn-primary" onClick={handleExportProject}
-            title="Download full project (HTML + CSS + JS) as ZIP">📦 Export Project</button>
+            title="Download full project (HTML + JS) as ZIP">📦 Export Project</button>
           <button className="editor-btn theme-toggle" onClick={toggleTheme}
             title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}>
             {theme === "dark" ? "☀️" : "🌙"}
@@ -278,7 +358,7 @@ function App() {
               <div className={`canvas-paper canvas-paper--${viewPortDevice}`}>
                 <ElementRenderer element={schema} selectedElementId={selectedId} onSelect={handleSelect}
                   onQuickAdd={handleQuickAdd} onDuplicate={handleDup} onDelete={remEl}
-                  viewportMode={viewPortDevice} />
+                  viewportMode={viewPortDevice} onInteraction={handleInteraction} />
               </div>
             </div>
           </div>
@@ -333,7 +413,8 @@ function App() {
           </button>
         </div>
         <div className="sidebar-content">
-          <PropertiesPanel selectedElement={selectedEl} onUpdate={updEl} onDelete={remEl} />
+          <PropertiesPanel selectedElement={selectedEl} onUpdate={updEl} onDelete={remEl}
+            allElements={allElements} />
         </div>
       </aside>
 

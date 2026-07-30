@@ -119,7 +119,35 @@ fs-builder, kullanıcıların sürükle-bırak editörü kullanarak tam donanım
   - **State Entegrasyonu (`App.tsx`):** `handleImport()` ile parse edilen şema seçili container'ın içine veya root'a eklenir ve yeni import edilen element otomatik seçilir. Modal kapandıktan sonra textarea temizlenir.
   - Tüm mevcut özellikler (selection, layers, drag-drop, properties panel, code panel, ZIP export, pan/zoom, theme, Tailwind CDN) korundu.
 
+### Adım 24.1: Tuval Medya Sorgusu ve Görünürlük İzolasyonu (Media Query Isolation Fix)
+- **Durum**: Tamamlandı.
+- **Açıklama**: Canvas önizlemesinde, Mobile (375px) veya Tablet (768px) moduna geçildiğinde Tailwind Play CDN'in `window.innerWidth` bazlı `@media` derlemesinin neden olduğu layout taşması ve görünürlük hatası giderildi:
+  - **JavaScript Tabanlı Responsive Class Filtreleme (`ElementRenderer.tsx`):** CSS `@container` override yaklaşımı terk edildi, bunun yerine ElementRenderer seviyesinde `filterResponsiveClasses()` fonksiyonu ile viewport moduna uymayan responsive Tailwind class'ları (`sm:`, `md:`, `lg:`, `xl:`, `2xl:`) className string'inden runtime'da temizleniyor. Örneğin Mobile modunda `hidden md:flex` → `hidden` (gizli kalır), Tablet modunda `grid-cols-1 md:grid-cols-2 lg:grid-cols-3` → `grid-cols-1 md:grid-cols-2` (2 kolon).
+  - **Desktop Genişlik Düzeltmesi (`.canvas-transform-layer`):** Desktop modunda canvas div'inin dar kalması sorunu, `.canvas-transform-layer`'a `width: 100%; min-width: 0;` eklenerek çözüldü. Layout zincirindeki shrink-wrap hatası giderildi; Desktop modu artık viewport'un tamamını dolduruyor (`max-width: 1280px` ile sınırlı).
+  - **Görsel İyileştirmeler:** Viewport kontrol barındaki emoji ikonlar (`📱` `💻`) Lucide tarzı clean SVG ikonlarla (Smartphone, Tablet, Monitor) değiştirildi. Canvas dock, `rgba(9,9,11,0.92)` şeffaf siyah zemin, `backdrop-filter: blur(8px)`, belirgin gölge ve yuvarlatılmış capsule tasarım ile yenilendi.
+  - **`container-type: inline-size`** özelliği `.canvas-paper` üzerinde tutuldu (gelecekteki container query tabanlı özellikler için altyapı hazır).
+  - Tüm mevcut özellikler (drag-and-drop, selection badge, layers tree, properties panel, code panel, ZIP export, copy/paste, import modal) korundu ve build başarıyla tamamlandı.
+
+### Adım 25: İnteraktif Davranış Katmanı (Interactive Behavior Layer)
+- **Durum**: Tamamlandı.
+- **Açıklama**: Görsel builder üzerinden elementlere onClick etkileşimleri tanımlamak için kapsamlı bir altyapı geliştirildi:
+  - **Core Schema (`core-schema/src/index.ts`):** `ElementInteraction` arayüzü (`trigger`, `action`, `targetElementId`, `className`) ve tüm element tiplerine `CoreElementProps` üzerinden `interactions[]` desteği eklendi.
+  - **Properties Panel (`PropertiesPanel.tsx`):** "INTERACTIONS" accordion bölümü — Target element seçici (akıllı sıralama: ID'li elementler önce, anonimler `─── Other ───` separator'ı ile ayrı), Action seçici (Toggle Class), Class Name inputu, Ekle/Sil butonları.
+  - **Canvas Etkileşim Motoru (`ElementRenderer.tsx`):** Element `handleClick` içinde `interactions` array'ini okuyor, `onInteraction()` callback'i ile App.tsx'e tetikliyor. Canvas'ta tıklandığında hedef elementin `tailwindClasses`'ında class toggle ediliyor.
+  - **JS Export Motoru (`js-generator.ts`):** `document.getElementById()` tabanlı, zero-dependency vanilla JS üretimi. Her handler block-scoped (`{ const srcEl = ... }`) ile çalışıyor, `JSON.stringify` ile class name güvenli escape.
+  - **HTML Export (`class-exporter.ts`):** Etkileşime giren elementlere otomatik `id="..."` attribute'u ekleniyor. Original HTML `id`'leri import sırasında korunuyor.
+
+### Adım 26: Export & ZIP Generation Audit
+- **Durum**: Tamamlandı.
+- **Açıklama**: Export edilen proje dosyalarının standalone çalışabilirliği denetlendi ve iyileştirildi:
+  - **HTML Yapısı (`class-exporter.ts`):** Clean HTML5 boilerplate (`<!DOCTYPE html>`, `<meta charset="UTF-8">`, responsive viewport `<meta>`, Tailwind Play CDN, `<script defer src="script.js">`). Tüm text içerikleri `escapeHtml()` ile güvenli hale getirildi (XSS koruması).
+  - **Vanilla JS (`js-generator.ts`):** `DOMContentLoaded` sarmalayıcısı içinde çalışan, `document.getElementById()` ile element bulup `classList.toggle()` yapan temiz JavaScript. Hiçbir external dependency yok. Etkileşim yoksa "No interactive elements found" comment ile temiz çıktı.
+  - **ZIP İndirme (`App.tsx`):** "Export HTML" butonu artık Tailwind tabanlı `generateClassExport()` kullanıyor (legacy inline-style export kaldırıldı). "Export Project" butonu `JSZip` ile `index.html` + `script.js`'i `fs-builder-project.zip` olarak indiriyor. Export sırasında UI feedback ("Generating project…", "Project exported!") gösteriliyor.
+  - **Legacy Temizlik:** `App.tsx`'den kullanılmayan `exportToHtml` import'ı kaldırıldı, `handleExportHtml` Tailwind exporter'a yönlendirildi.
+
 ---
 
 ## Mevcut Hedef
-- Sıradaki adımı bekliyor. Çekirdek framework artık Tailwind ekosistemi ile native girdi/çıktı yapabilen, son derece güçlü bir görsel oluşturucu haline gelmiştir. Bir sonraki ana kilometre taşı: **Bileşen Kütüphanesinin Genişletilmesi** — Özel Gelişmiş Bileşenler (Image Component Source/Alt Binding, Video Embeds, Input/Textarea/Select form elemanları) ve **Tailwind İnteraktif Davranış Katmanı** (menü, accordion, tab gibi dinamik click/toggle utility script'lerinin properties panel üzerinden yönetimi).
+- **Export motoru tamamen denetlendi ve üretim kalitesine ulaştı.** export edilen `index.html` + `script.js` standalone olarak herhangi bir static server'da açıldığında sorunsuz çalışıyor. Tailwind CDN sayesinde tüm utility class'lar canlı derleniyor; interaktif elementler (toggle class) kusursuz çalışıyor.
+- Bir sonraki ana kilometre taşı: **Bileşen Kütüphanesi Genişletmesi — Yeni Element Tipleri:** `image` (src/alt binding), `input`, `textarea`, `select` form elemanları, `video` embed ve `icon` wrapper tiplerinin şemaya eklenmesi. Bu tiplerin `ElementRenderer`, `PropertiesPanel`, `html-importer` ve `class-exporter` ile tam entegrasyonu planlanmaktadır.
+  - Mevcut durumda sadece `container`, `text`, ve `button` tipleri desteklenmektedir.

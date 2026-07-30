@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
-import type { UIElement, ElementType, TextProps, ButtonProps } from "@fs-builder/core-schema";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import type { UIElement, ElementType, TextProps, ButtonProps, ElementInteraction } from "@fs-builder/core-schema";
 
 interface ElementRendererProps {
   element: UIElement;
@@ -10,6 +10,8 @@ interface ElementRendererProps {
   onDelete: (elementId: string) => void;
   /** Active viewport device mode; used to strip inapplicable responsive Tailwind classes */
   viewportMode?: "desktop" | "tablet" | "mobile";
+  /** Called when an element with interactions is clicked in the canvas */
+  onInteraction?: (sourceId: string, interactions: ElementInteraction[]) => void;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -104,25 +106,26 @@ function resolveClasses(element: UIElement, viewportMode: string): string {
   // Each element stores tailwindClasses in its props.
   // Since UIElement.props is a discriminated union, we access it via a safe cast.
   const tailwindClasses = (element.props as Record<string, unknown>).tailwindClasses as string | undefined;
-  if (tailwindClasses) {
-    return viewportMode !== "desktop"
-      ? filterResponsiveClasses(tailwindClasses, viewportMode)
-      : tailwindClasses;
+  // Use empty string check (not falsy check) so that intentionally blank classes
+  // don't trigger the aggressive fallback (which adds bg-gray-50 / text-gray-900).
+  if (tailwindClasses !== undefined && tailwindClasses !== null) {
+    const trimmed = tailwindClasses.trim();
+    if (trimmed) {
+      return viewportMode !== "desktop"
+        ? filterResponsiveClasses(trimmed, viewportMode)
+        : trimmed;
+    }
   }
 
-  // Fallback for migration compatibility
-  switch (element.type) {
-    case "container": return "flex flex-col border border-gray-200 bg-gray-50 p-4";
-    case "text": return "text-base text-gray-900";
-    case "button": return "bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded border border-gray-300";
-    default: return "";
-  }
+  // No visual fallback — return empty so elements stay transparent/neutral
+  // instead of getting aggressive bg-gray-50 or text-gray-900 defaults.
+  return "";
 }
 
 // ── Main Renderer ─────────────────────────────────────────────
 
 export const ElementRenderer: React.FC<ElementRendererProps> = ({
-  element, selectedElementId, onSelect, onQuickAdd, onDuplicate, onDelete, viewportMode = "desktop",
+  element, selectedElementId, onSelect, onQuickAdd, onDuplicate, onDelete, viewportMode = "desktop", onInteraction,
 }) => {
   if (!element) return null;
 
@@ -130,14 +133,22 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
   const isSelected = id === selectedElementId;
   const isRoot = id === "root-container";
 
+  // Read interactions from props (available on all types via CoreElementProps)
+  const interactions: ElementInteraction[] | undefined =
+    (element.props as Record<string, unknown>).interactions as ElementInteraction[] | undefined;
+
   const selectionStyle: React.CSSProperties = isSelected
     ? { outline: "2px solid #3b82f6", outlineOffset: "1px" }
     : {};
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onSelect(id);
-  };
+    // If this element has interactions and an interaction handler is wired, fire it
+    if (interactions && interactions.length > 0 && onInteraction) {
+      onInteraction(id, interactions);
+    }
+  }, [id, onSelect, interactions, onInteraction]);
 
   const tw = resolveClasses(element, viewportMode);
 
@@ -163,7 +174,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
               <ElementRenderer key={child.id} element={child}
                 selectedElementId={selectedElementId} onSelect={onSelect}
                 onQuickAdd={onQuickAdd} onDuplicate={onDuplicate} onDelete={onDelete}
-                viewportMode={viewportMode} />
+                viewportMode={viewportMode} onInteraction={onInteraction} />
             ))
           ) : (
             <div style={{ minHeight: "20px", backgroundColor: "#f0f0f0" }} />

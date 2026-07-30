@@ -1,11 +1,21 @@
 import React, { useState } from "react";
-import type { UIElement, TextProps, ButtonProps, ContainerProps } from "@fs-builder/core-schema";
+import type { UIElement, TextProps, ButtonProps, ContainerProps, ElementInteraction } from "@fs-builder/core-schema";
 import { tw, DISPLAY_GROUP, FLEX_DIR_GROUP, ALIGN_GROUP, JUSTIFY_GROUP, FONT_SIZE_GROUP, FONT_WEIGHT_GROUP, TEXT_ALIGN_GROUP } from "../utils/tw";
+
+interface FlatElementInfo {
+  id: string;
+  label: string;
+  hasMeaningfulId: boolean;
+  hasHidden: boolean;
+  type: string;
+}
 
 interface PropertiesPanelProps {
   selectedElement: UIElement | null;
   onUpdate: (elementId: string, newProps: Partial<TextProps | ButtonProps | ContainerProps>) => void;
   onDelete: (elementId: string) => void;
+  /** All elements in the tree (for the target picker dropdown) */
+  allElements?: FlatElementInfo[];
 }
 
 function Section({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
@@ -47,7 +57,7 @@ function Inp({ id, label, value, onChange }: { id: string; label: string; value:
   );
 }
 
-export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElement, onUpdate, onDelete }) => {
+export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElement, onUpdate, onDelete, allElements }) => {
   if (!selectedElement) {
     return <div className="properties-panel-wrapper"><div className="properties-empty">No element selected</div></div>;
   }
@@ -58,6 +68,24 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElemen
   const isText = type === "text";
   const isButton = type === "button";
   const textVal = isText ? (selectedElement.props as TextProps).text : isButton ? (selectedElement.props as ButtonProps).text : "";
+
+  // ── Interactions state ─────────────────────────────────────
+  const interactions: ElementInteraction[] = (propsAny.interactions as ElementInteraction[]) ?? [];
+
+  const addInteraction = () => {
+    const newIx: ElementInteraction = { trigger: "onClick", action: "toggleClass", targetElementId: "", className: "hidden" };
+    onUpdate(id, { interactions: [...interactions, newIx] } as Partial<TextProps & ButtonProps & ContainerProps>);
+  };
+
+  const removeInteraction = (idx: number) => {
+    const next = interactions.filter((_, i) => i !== idx);
+    onUpdate(id, { interactions: next } as Partial<TextProps & ButtonProps & ContainerProps>);
+  };
+
+  const updateInteraction = (idx: number, patch: Partial<ElementInteraction>) => {
+    const next = interactions.map((ix, i) => (i === idx ? { ...ix, ...patch } : ix));
+    onUpdate(id, { interactions: next } as Partial<TextProps & ButtonProps & ContainerProps>);
+  };
 
   const setTw = (next: string) => onUpdate(id, { tailwindClasses: next } as Partial<TextProps & ButtonProps & ContainerProps>);
   const upd = (fn: (c: string) => string) => setTw(fn(rawTw));
@@ -201,6 +229,85 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElemen
               type="button">{opt.l}</button>
           ))}
         </div>
+      </Section>
+
+      {/* Interactions */}
+      <Section title="Interactions" defaultOpen={false}>
+        {interactions.length === 0 && (
+          <p style={{ fontSize: "0.72rem", color: "var(--text-dim)", marginBottom: 8 }}>
+            No interactions defined. Add one to make this element interactive.
+          </p>
+        )}
+        {interactions.map((ix, idx) => (
+          <div key={idx} style={{
+            border: "1px solid var(--border-color)", borderRadius: 6, padding: "6px 8px",
+            marginBottom: 8, background: "var(--bg-main)",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <span className="prop-label">{ix.trigger}</span>
+              <button onClick={() => removeInteraction(idx)} style={{
+                border: "none", background: "transparent", color: "var(--danger-color)",
+                cursor: "pointer", fontSize: "0.7rem", padding: "0 4px",
+              }}>✕</button>
+            </div>
+
+            {/* Target element picker */}
+            <div className="prop-field" style={{ marginBottom: 4 }}>
+              <label className="prop-label">Target Element</label>
+              <select className="prop-input" value={ix.targetElementId}
+                onChange={(e) => updateInteraction(idx, { targetElementId: e.target.value })}>
+                <option value="">— Select target —</option>
+                {(allElements ?? []).filter((el) => el.id !== id)
+                  .sort((a, b) => {
+                    // Prioritise elements with meaningful IDs
+                    if (a.hasMeaningfulId && !b.hasMeaningfulId) return -1;
+                    if (!a.hasMeaningfulId && b.hasMeaningfulId) return 1;
+                    return a.label.localeCompare(b.label);
+                  })
+                  .map((el, _i, arr) => {
+                    // Insert a visual separator before the first anonymous element
+                    const needsSep = _i > 0 && !el.hasMeaningfulId && arr[_i - 1].hasMeaningfulId;
+                    return (
+                      <React.Fragment key={el.id}>
+                        {needsSep && (
+                          <option disabled style={{ fontSize: "0.65rem", color: "var(--text-dim)", textAlign: "center" }}>
+                            ─── Other ───
+                          </option>
+                        )}
+                        <option value={el.id}>
+                          {el.hasMeaningfulId
+                            ? `#${el.id} (${el.type})${el.hasHidden ? " [Hidden]" : ""}`
+                            : `${el.label}${el.hasHidden ? " [Hidden]" : ""}`
+                          }
+                        </option>
+                      </React.Fragment>
+                    );
+                  })}
+              </select>
+            </div>
+
+            {/* Action type (read-only for now; always toggleClass) */}
+            <div className="prop-field" style={{ marginBottom: 4 }}>
+              <label className="prop-label">Action</label>
+              <select className="prop-input" value={ix.action}
+                onChange={(e) => updateInteraction(idx, { action: e.target.value as "toggleClass" })}>
+                <option value="toggleClass">Toggle Class</option>
+              </select>
+            </div>
+
+            {/* Class name to toggle */}
+            <div className="prop-field" style={{ marginBottom: 0 }}>
+              <label className="prop-label">Class Name</label>
+              <input className="prop-input" type="text" value={ix.className}
+                onChange={(e) => updateInteraction(idx, { className: e.target.value })}
+                placeholder="e.g. hidden" />
+            </div>
+          </div>
+        ))}
+        <button className="editor-btn editor-btn-block" onClick={addInteraction}
+          style={{ fontSize: "0.75rem", padding: "4px 8px" }}>
+          + Add Interaction
+        </button>
       </Section>
 
       <button className="editor-btn editor-btn-danger editor-btn-block" onClick={() => onDelete(id)} style={{ marginTop: 20 }}>

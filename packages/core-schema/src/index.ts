@@ -16,7 +16,22 @@ export interface BaseStyleProps {
   borderRadius?: number;
 }
 
-// ── Interaction / event props ──────────────────────────────────
+// ── Interaction schema ─────────────────────────────────────────
+// Each interaction defines a trigger (e.g., onClick) and an action
+// to perform on a target element (e.g., toggle a CSS class).
+
+export interface ElementInteraction {
+  /** DOM trigger event */
+  trigger: "onClick";
+  /** What to do when triggered */
+  action: "toggleClass";
+  /** The element ID to act upon */
+  targetElementId: string;
+  /** The CSS class to toggle (e.g. "hidden") */
+  className: string;
+}
+
+// ── Legacy interaction props (kept for backward compat) ────────
 
 export type ClickAction = "none" | "alert" | "toggle-class" | "navigate" | "custom";
 
@@ -27,32 +42,34 @@ export interface InteractionProps {
 
 // ── Per-type prop definitions ──────────────────────────────────
 
-export interface ContainerProps extends BaseStyleProps {
+// ── Base props shared by all element types ────────────────────
+
+export interface CoreElementProps {
+  tailwindClasses?: string;
+  /** Optional list of interactions attached to this element */
+  interactions?: ElementInteraction[];
+}
+
+export interface ContainerProps extends BaseStyleProps, CoreElementProps {
   direction?: "vertical" | "horizontal";
   gap?: number;
   padding?: number;
   justifyContent?: "flex-start" | "center" | "flex-end" | "space-between" | "space-around";
   alignItems?: "flex-start" | "center" | "flex-end" | "stretch";
-  /** Tailwind CSS classes to apply instead of inline style props */
-  tailwindClasses?: string;
 }
 
-export interface TextProps extends BaseStyleProps {
+export interface TextProps extends BaseStyleProps, CoreElementProps {
   text: string;
   fontSize?: number;
   color?: string;
   fontWeight?: "normal" | "medium" | "bold";
   textAlign?: "left" | "center" | "right";
-  /** Tailwind CSS classes to apply instead of inline style props */
-  tailwindClasses?: string;
 }
 
-export interface ButtonProps extends BaseStyleProps, InteractionProps {
+export interface ButtonProps extends BaseStyleProps, InteractionProps, CoreElementProps {
   text: string;
   color?: string;
   padding?: number;
-  /** Tailwind CSS classes to apply instead of inline style props */
-  tailwindClasses?: string;
 }
 
 // A mapped type to associate element types with their props
