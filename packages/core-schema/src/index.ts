@@ -1,6 +1,6 @@
 export type ElementType = "container" | "text" | "button";
 
-// ── Shared styling properties ──────────────────────────────────
+// ── Shared styling properties (legacy inline styles, will be replaced by tailwind) ──
 
 export type DisplayMode = "block" | "inline-block" | "flex";
 
@@ -33,6 +33,8 @@ export interface ContainerProps extends BaseStyleProps {
   padding?: number;
   justifyContent?: "flex-start" | "center" | "flex-end" | "space-between" | "space-around";
   alignItems?: "flex-start" | "center" | "flex-end" | "stretch";
+  /** Tailwind CSS classes to apply instead of inline style props */
+  tailwindClasses?: string;
 }
 
 export interface TextProps extends BaseStyleProps {
@@ -41,12 +43,16 @@ export interface TextProps extends BaseStyleProps {
   color?: string;
   fontWeight?: "normal" | "medium" | "bold";
   textAlign?: "left" | "center" | "right";
+  /** Tailwind CSS classes to apply instead of inline style props */
+  tailwindClasses?: string;
 }
 
 export interface ButtonProps extends BaseStyleProps, InteractionProps {
   text: string;
   color?: string;
   padding?: number;
+  /** Tailwind CSS classes to apply instead of inline style props */
+  tailwindClasses?: string;
 }
 
 // A mapped type to associate element types with their props

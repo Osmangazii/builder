@@ -7,13 +7,28 @@ import { ElementRenderer } from "./components/ElementRenderer";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import { LayersPanel } from "./components/LayersPanel";
 import { CodePanel } from "./components/CodePanel";
+import { ImportModal } from "./components/ImportModal";
+import { parseHtmlToSchema } from "./utils/html-importer";
 
 const initialSchema: UIElement = {
-  id: "root-container", type: "container", props: {},
+  id: "root-container", type: "container",
+  props: { tailwindClasses: "flex flex-col min-h-screen bg-white" },
   children: [
-    { id: "text-1", type: "text", props: { text: "Welcome to the Visual Builder" }, children: [] },
-    { id: "main-content", type: "container", props: {},
-      children: [{ id: "button-1", type: "button", props: { text: "Click me!" }, children: [] }],
+    {
+      id: "text-1", type: "text",
+      props: { text: "Welcome to the Visual Builder", tailwindClasses: "text-2xl font-bold text-gray-800 p-4" },
+      children: [],
+    },
+    {
+      id: "main-content", type: "container",
+      props: { tailwindClasses: "flex flex-col gap-4 p-4 bg-gray-50" },
+      children: [
+        {
+          id: "button-1", type: "button",
+          props: { text: "Click me!", tailwindClasses: "bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2 rounded-lg transition-colors" },
+          children: [],
+        },
+      ],
     },
   ],
 };
@@ -73,6 +88,9 @@ function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [clipboard, setClipboard] = useState<UIElement | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [showImport, setShowImport] = useState(false);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
 
   const addEl = (pid: string, ne: UIElement) => setSchema((p) => addRec(p, pid, ne));
   const updEl = (id: string, p: Partial<UIElement["props"]>) => setSchema((prev) => updRec(prev, id, p));
@@ -101,7 +119,11 @@ function App() {
   const handleQuickAdd = useCallback((sid: string, type: ElementType) => {
     const id = generateId(type);
     let ne: UIElement;
-    switch (type) { case "text": ne = { id, type: "text", props: { text: "New Text" }, children: [] }; break; case "button": ne = { id, type: "button", props: { text: "New Button" }, children: [] }; break; case "container": ne = { id, type: "container", props: {}, children: [] }; break; }
+    switch (type) {
+      case "text": ne = { id, type: "text", props: { text: "New Text", tailwindClasses: "text-base text-gray-700" }, children: [] }; break;
+      case "button": ne = { id, type: "button", props: { text: "New Button", tailwindClasses: "bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded border border-gray-300" }, children: [] }; break;
+      case "container": ne = { id, type: "container", props: { tailwindClasses: "flex flex-col gap-2 p-4 border border-gray-200 rounded" }, children: [] }; break;
+    }
     const t = findById(schema, sid);
     if (t && t.type === "container" && sid !== schema.id) addEl(sid, ne); else setSchema((prev) => addSib(prev, sid, ne));
     setSelectedId(id);
@@ -110,9 +132,23 @@ function App() {
   const handleAddNew = (type: ElementType) => {
     const id = generateId(type);
     let ne: UIElement;
-    switch (type) { case "text": ne = { id, type: "text", props: { text: "New Text" }, children: [] }; break; case "button": ne = { id, type: "button", props: { text: "New Button" }, children: [] }; break; case "container": ne = { id, type: "container", props: {}, children: [] }; break; }
+    switch (type) {
+      case "text": ne = { id, type: "text", props: { text: "New Text", tailwindClasses: "text-base text-gray-700" }, children: [] }; break;
+      case "button": ne = { id, type: "button", props: { text: "New Button", tailwindClasses: "bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded border border-gray-300" }, children: [] }; break;
+      case "container": ne = { id, type: "container", props: { tailwindClasses: "flex flex-col gap-2 p-4 border border-gray-200 rounded" }, children: [] }; break;
+    }
     const sel = selectedId ? findById(schema, selectedId) : null; addEl(sel && sel.type === "container" ? sel.id : schema.id, ne); setSelectedId(id);
   };
+
+  const handleImport = useCallback((html: string) => {
+    const imported = parseHtmlToSchema(html);
+    if (!imported) return;
+    const sel = selectedId ? findById(schema, selectedId) : null;
+    if (sel && sel.type === "container" && sel.id !== schema.id) addEl(sel.id, imported);
+    else setSchema((prev) => addRec(prev, schema.id, imported));
+    setSelectedId(imported.id);
+    setShowImport(false);
+  }, [schema, selectedId]);
 
   const handleExportHtml = () => {
     const html = exportToHtml(schema); const blob = new Blob([html], { type: "text/html" });
@@ -121,8 +157,8 @@ function App() {
   };
 
   const handleExportProject = useCallback(async () => {
-    const { html, css, js } = generateClassExport(schema);
-    const zip = new JSZip(); zip.file("index.html", html); zip.file("style.css", css); zip.file("script.js", js);
+    const { html, js } = generateClassExport(schema);
+    const zip = new JSZip(); zip.file("index.html", html); zip.file("script.js", js);
     const blob = await zip.generateAsync({ type: "blob" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "fs-builder-project.zip";
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
@@ -190,25 +226,37 @@ function App() {
         </div>
       </header>
 
-      <aside className="editor-left-sidebar">
-        <div className="sidebar-section toolbox-section">
-          <div className="sidebar-section-header"><span className="sidebar-section-title">Toolbox</span></div>
-          <div className="toolbox-buttons">
-            <button className="editor-btn editor-btn-block" onClick={() => handleAddNew("container")}>+ Container</button>
-            <button className="editor-btn editor-btn-block" onClick={() => handleAddNew("text")}>+ Text</button>
-            <button className="editor-btn editor-btn-block" onClick={() => handleAddNew("button")}>+ Button</button>
-          </div>
+      {/* ═══ LEFT SIDEBAR ═══ */}
+      <aside className={`editor-sidebar editor-sidebar--left${leftCollapsed ? " editor-sidebar--collapsed" : ""}`}>
+        <div className="sidebar-header">
+          <span className="sidebar-section-title">TOOLBOX</span>
+          <button className="sidebar-toggle-btn" onClick={() => setLeftCollapsed((p) => !p)}
+            title={leftCollapsed ? "Show panel" : "Hide panel"}>
+            {leftCollapsed ? "▶" : "◀"}
+          </button>
         </div>
-        <div className="sidebar-section layers-section">
-          <div className="sidebar-section-header">
-            <span className="sidebar-section-title">Layers</span>
-            <span className="sidebar-section-count">{countElements(schema)}</span>
+        <div className="sidebar-content">
+          <div className="sidebar-section">
+            <div className="toolbox-buttons">
+              <button className="editor-btn editor-btn-block" onClick={() => handleAddNew("container")}>+ Container</button>
+              <button className="editor-btn editor-btn-block" onClick={() => handleAddNew("text")}>+ Text</button>
+              <button className="editor-btn editor-btn-block" onClick={() => handleAddNew("button")}>+ Button</button>
+              <div className="sidebar-section-divider" />
+              <button className="editor-btn editor-btn-block" onClick={() => setShowImport(true)}>📥 Import</button>
+            </div>
           </div>
-          <LayersPanel element={schema} selectedElementId={selectedId}
-            onSelect={handleSelect} onMoveElement={handleMove} />
+          <div className="sidebar-section layers-section">
+            <div className="sidebar-section-header">
+              <span className="sidebar-section-title">Layers</span>
+              <span className="sidebar-section-count">{countElements(schema)}</span>
+            </div>
+            <LayersPanel element={schema} selectedElementId={selectedId}
+              onSelect={handleSelect} onMoveElement={handleMove} />
+          </div>
         </div>
       </aside>
 
+      {/* ═══ CANVAS ═══ */}
       <main className="editor-canvas"
         ref={canvasRef} onClick={hCC}
         onMouseDown={hMD} onMouseMove={hMM}
@@ -249,9 +297,21 @@ function App() {
         <CodePanel schema={schema} />
       </main>
 
-      <aside className="editor-right-sidebar">
-        <PropertiesPanel selectedElement={selectedEl} onUpdate={updEl} onDelete={remEl} />
+      {/* ═══ RIGHT SIDEBAR ═══ */}
+      <aside className={`editor-sidebar editor-sidebar--right${rightCollapsed ? " editor-sidebar--collapsed" : ""}`}>
+        <div className="sidebar-header">
+          <span className="sidebar-section-title">Properties</span>
+          <button className="sidebar-toggle-btn" onClick={() => setRightCollapsed((p) => !p)}
+            title={rightCollapsed ? "Show panel" : "Hide panel"}>
+            {rightCollapsed ? "◀" : "▶"}
+          </button>
+        </div>
+        <div className="sidebar-content">
+          <PropertiesPanel selectedElement={selectedEl} onUpdate={updEl} onDelete={remEl} />
+        </div>
       </aside>
+
+      <ImportModal open={showImport} onClose={() => setShowImport(false)} onImport={handleImport} />
     </div>
   );
 }

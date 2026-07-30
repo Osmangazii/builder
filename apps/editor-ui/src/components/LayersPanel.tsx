@@ -46,7 +46,10 @@ interface LayerNodeProps {
   onSelect: (elementId: string) => void;
   onMoveElement: (sourceId: string, targetParentId: string, targetIndex: number) => void;
   draggedIdRef: React.MutableRefObject<string | null>;
+  defaultExpanded?: boolean;
 }
+
+const INDENT_PER_LEVEL = 10;
 
 const LayerNode: React.FC<LayerNodeProps> = ({
   element,
@@ -57,8 +60,9 @@ const LayerNode: React.FC<LayerNodeProps> = ({
   onSelect,
   onMoveElement,
   draggedIdRef,
+  defaultExpanded = true,
 }) => {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [dropPos, setDropPos] = useState<DropPosition>(null);
 
   const isSelected = element.id === selectedElementId;
@@ -74,8 +78,6 @@ const LayerNode: React.FC<LayerNodeProps> = ({
     }
   }, [isSelected]);
 
-  // ── Click / Toggle ─────────────────────────────────────────
-
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onSelect(element.id);
@@ -86,134 +88,84 @@ const LayerNode: React.FC<LayerNodeProps> = ({
     setExpanded((prev) => !prev);
   };
 
-  // ── Drag Start ─────────────────────────────────────────────
+  // ── Drag ───────────────────────────────────────────────────
 
-  const handleDragStart = useCallback(
-    (e: React.DragEvent<HTMLDivElement>) => {
-      if (isRoot) {
-        e.preventDefault();
-        return;
-      }
-      draggedIdRef.current = element.id;
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", element.id);
-      // Apply a CSS class after a tick for the drag ghost
-      requestAnimationFrame(() => {
-        if (nodeRef.current) {
-          nodeRef.current.classList.add("layer-row--dragging");
-        }
-      });
-    },
-    [element.id, isRoot, draggedIdRef],
-  );
+  const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    if (isRoot) { e.preventDefault(); return; }
+    draggedIdRef.current = element.id;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", element.id);
+    requestAnimationFrame(() => { if (nodeRef.current) nodeRef.current.classList.add("layer-row--dragging"); });
+  }, [element.id, isRoot, draggedIdRef]);
 
   const handleDragEnd = useCallback(() => {
     draggedIdRef.current = null;
     setDropPos(null);
-    // Remove the dragging class from any row
-    document.querySelectorAll(".layer-row--dragging").forEach((el) => {
-      el.classList.remove("layer-row--dragging");
-    });
+    document.querySelectorAll(".layer-row--dragging").forEach((el) => el.classList.remove("layer-row--dragging"));
   }, [draggedIdRef]);
 
-  // ── Drag Over ──────────────────────────────────────────────
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    const sourceId = draggedIdRef.current;
+    if (!sourceId) return;
+    if (sourceId === element.id || containsElement(element, sourceId)) { setDropPos(null); return; }
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const h = rect.height;
+    const edge = 0.28;
+    if (y < h * edge) setDropPos("before");
+    else if (y > h * (1 - edge)) setDropPos("after");
+    else if (isContainer) setDropPos("inside");
+    else setDropPos(null);
+  }, [element, isContainer, draggedIdRef]);
 
-  const handleDragOver = useCallback(
-    (e: React.DragEvent<HTMLDivElement>) => {
-      const sourceId = draggedIdRef.current;
-      if (!sourceId) return;
+  const handleDragLeave = useCallback(() => setDropPos(null), []);
 
-      // Prevent dropping onto self or into own descendant
-      if (sourceId === element.id || containsElement(element, sourceId)) {
-        setDropPos(null);
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sourceId = draggedIdRef.current;
+    if (!sourceId || sourceId === "root-container") { setDropPos(null); return; }
+    let targetParentId: string;
+    let targetIndex: number;
+    switch (dropPos) {
+      case "before":
+        if (parentId === null) return;
+        targetParentId = parentId;
+        targetIndex = index;
+        break;
+      case "after":
+        if (parentId === null) return;
+        targetParentId = parentId;
+        targetIndex = index + 1;
+        break;
+      case "inside":
+        if (!isContainer) return;
+        targetParentId = element.id;
+        targetIndex = element.children.length;
+        setExpanded(true);
+        break;
+      default:
         return;
-      }
-
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-
-      const rect = e.currentTarget.getBoundingClientRect();
-      const y = e.clientY - rect.top;
-      const h = rect.height;
-      const edge = 0.28;
-
-      if (y < h * edge) {
-        setDropPos("before");
-      } else if (y > h * (1 - edge)) {
-        setDropPos("after");
-      } else if (isContainer) {
-        setDropPos("inside");
-      } else {
-        setDropPos(null);
-      }
-    },
-    [element, isContainer, draggedIdRef],
-  );
-
-  const handleDragLeave = useCallback(() => {
+    }
+    onMoveElement(sourceId, targetParentId, targetIndex);
     setDropPos(null);
-  }, []);
-
-  // ── Drop ───────────────────────────────────────────────────
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const sourceId = draggedIdRef.current;
-      if (!sourceId || sourceId === "root-container") {
-        setDropPos(null);
-        return;
-      }
-
-      let targetParentId: string;
-      let targetIndex: number;
-
-      switch (dropPos) {
-        case "before":
-          if (parentId === null) return;
-          targetParentId = parentId;
-          targetIndex = index;
-          break;
-        case "after":
-          if (parentId === null) return;
-          targetParentId = parentId;
-          targetIndex = index + 1;
-          break;
-        case "inside":
-          if (!isContainer) return;
-          targetParentId = element.id;
-          targetIndex = element.children.length;
-          setExpanded(true);
-          break;
-        default:
-          return;
-      }
-
-      onMoveElement(sourceId, targetParentId, targetIndex);
-      setDropPos(null);
-    },
-    [dropPos, parentId, index, isContainer, element, onMoveElement, draggedIdRef],
-  );
-
-  // ── CSS classes for the row ─────────────────────────────────
+  }, [dropPos, parentId, index, isContainer, element, onMoveElement, draggedIdRef]);
 
   const rowClasses = [
     "layer-row",
     isSelected ? "layer-row--selected" : "",
     dropPos ? `layer-row--drop-${dropPos}` : "",
-    isRoot ? "" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  ].filter(Boolean).join(" ");
 
   return (
-    <div>
+    <div className="layer-node">
       {/* ── Row ── */}
       <div
         ref={nodeRef}
         className={rowClasses}
-        style={{ paddingLeft: depth * 16 + 8 }}
+        style={{ paddingLeft: depth * INDENT_PER_LEVEL + 4 }}
         onClick={handleClick}
         data-element-id={element.id}
         draggable={!isRoot}
@@ -257,6 +209,8 @@ const LayerNode: React.FC<LayerNodeProps> = ({
               onSelect={onSelect}
               onMoveElement={onMoveElement}
               draggedIdRef={draggedIdRef}
+              // Deeply nested levels (>= 3) start collapsed to keep the tree readable
+              defaultExpanded={depth < 2}
             />
           ))}
         </div>
@@ -265,12 +219,9 @@ const LayerNode: React.FC<LayerNodeProps> = ({
   );
 };
 
-// ── Helper: returns true if `targetId` is `element` itself or a descendant ──
 function containsElement(element: UIElement, targetId: string): boolean {
   if (element.id === targetId) return true;
-  if ("children" in element) {
-    return element.children.some((child) => containsElement(child, targetId));
-  }
+  if ("children" in element) return element.children.some((child) => containsElement(child, targetId));
   return false;
 }
 

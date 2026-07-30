@@ -8,6 +8,7 @@ fs-builder, kullanıcıların sürükle-bırak editörü kullanarak tam donanım
 
 **Teknoloji Yığını:**
 - Frontend: React + TypeScript + Vite
+- Stil Sistemi: **Native Tailwind CSS** (Tailwind Play CDN ile canlı derleme)
 - Masaüstü: Tauri
 - State & Mantık: Performans odaklı ve modüler
 
@@ -77,66 +78,48 @@ fs-builder, kullanıcıların sürükle-bırak editörü kullanarak tam donanım
   - **Sol Sidebar:** Üst kısımda "Toolbox" (Container, Text, Button ekleme butonları), alt kısımda "Layers" paneli.
   - **Merkez Canvas (Önizleme):** Kullanıcının oluşturduğu web sayfasının önizlemesini gösteren, izole edilmiş bir alan. `ElementRenderer` bileşeni burada render edilir.
   - **Sağ Sidebar:** Seçili elemanın özelliklerini düzenlemek için `PropertiesPanel` bileşeni.
-- CSS Variables (`--bg-main`, `--bg-sidebar`, `--border-color`, `--text-main`, `--accent-color`, vb.) kullanılarak Dark (varsayılan, Catppuccin Mocha benzeri profesyonel görünüm) ve Light olmak üzere iki temalı bir sistem entegre edildi. Tema, header'daki bir buton ile anlık olarak değiştirilebilir.
-- **Kritik Kazanım:** Merkez Canvas/Önizleme alanı, tema sisteminden tamamen izole edildi. Canvas zemini (`--canvas-bg`) ve yüzeyi (`--canvas-surface`) temadan bağımsız sabit renkler kullanır. Bu sayede editör teması değiştiğinde kullanıcının oluşturduğu web sayfasının stilleri (inline style) hiçbir şekilde etkilenmez veya bozulmaz.
-- Tüm mevcut state yönetimi, eleman seçimi, iç içe konteyner mantığı ve HTML dışa aktarma özellikleri korundu.
+- CSS Variables (`--bg-main`, `--bg-sidebar`, `--border-color`, `--text-main`, `--accent-color`, vb.) kullanılarak Dark (varsayılan, True Black / Neutral Gray) ve Light olmak üzere iki temalı bir sistem entegre edildi.
+- **Kritik Kazanım:** Merkez Canvas/Önizleme alanı, tema sisteminden tamamen izole edildi.
 
 ### Adım 16: İnteraktif Katmanlar Paneli (DOM Ağacı Görünümü)
 - **Durum**: Tamamlandı.
-- **Açıklama**: Sol sidebar'da bulunan "Layers" alanı, statik bir placeholder olmaktan çıkarılarak tamamen işlevsel, interaktif bir DOM ağacı görünümüne dönüştürüldü:
-  - **Rekürsif Ağaç Yapısı:** Tüm şema hiyerarşisi, her bir elemanın türüne göre görsel simgeler ve girintilerle birlikte rekürsif olarak listelenir. Kapsayıcı (container) elemanlar, alt öğelerini gizleyip gösterebilmek için genişletme/daraltma (expand/collapse) kontrollerine sahiptir.
-  - **Çift Yönlü Seçim Senkronizasyonu:** Kanvas üzerinde bir elemana tıklandığında, katmanlar panelinde ilgili satır otomatik olarak vurgulanır ve görünür hale getirilir (scroll into view). Tersi de geçerlidir: Katmanlar panelinde bir satıra tıklandığında, kanvas üzerinde o eleman seçilir ve özellikler paneli güncellenir.
-  - **Tip Göstergeleri:** Container, Text ve Button türleri, sol taraflarında farklı simgelerle (📦, 𝜲, 🔘) işaretlenmiştir. Bu sayede kullanıcı ağaçta gezinirken her bir öğenin türünü anında ayırt edebilir.
-  - **Tema Uyumu:** Tüm katman paneli stilleri, CSS değişkenlerini (`--bg-hover`, `--bg-active`, `--text-main`, `--text-dim`, `--accent-color`, vb.) kullanarak hem Dark hem de Light temalarda tutarlı ve okunabilir bir görünüm sunar.
+- **Açıklama**: Rekürsif DOM ağacı, çift yönlü seçim senkronizasyonu, expand/collapse kontrolleri, tip göstergeleri.
 
 ### Adım 17: Gelişmiş Text ve Button Özellikleri (Properties System)
 - **Durum**: Tamamlandı.
-- **Açıklama**: Text ve Button elemanları için özellik düzenleme sistemi kapsamlı bir şekilde genişletildi:
-  - **Şema Genişletmesi (`core-schema`):** `TextProps` ve `ButtonProps` arayüzlerine yeni stil ve içerik özellikleri eklendi.
-  - **Text Özellikleri:** İçerik metni (text input), font boyutu (`fontSize`, px), metin rengi (`color`, hex color picker), font ağırlığı (`fontWeight`: Normal/Medium/Bold) ve metin hizalama (`textAlign`: Left/Center/Right) için kontroller eklendi.
-  - **Button Özellikleri:** Buton etiketi (text input), arka plan rengi (`backgroundColor`, hex color picker), metin rengi (`color`, hex color picker), iç dolgu (`padding`, px) ve köşe yuvarlaklığı (`borderRadius`, px) için kontroller eklendi.
-  - **Editör Önizleme Entegrasyonu (`ElementRenderer`):** Tüm yeni özellikler, React inline style olarak dinamik şekilde render edilir. Kullanıcı panelde bir değeri değiştirdiğinde sonuç anında kanvas üzerinde görünür.
-  - **HTML Dışa Aktarma Entegrasyonu (`exporters/html.ts`):** Dışa aktarma motoru, text ve button elemanları için yeni stil özelliklerini okuyacak ve oluşturulan HTML çıktısına inline style olarak ekleyecek şekilde güncellendi.
-  - **Yeniden Kullanılabilir UI Helper'lar:** PropertiesPanel içinde `TextField`, `NumberField`, `ColorField` ve `SelectField` gibi yardımcı bileşenler tanımlanarak panel kodunun okunabilirliği ve bakımı kolaylaştırıldı.
-  - Color picker alanı için özel CSS stilleri (`prop-color-row`, `prop-color-picker`, `prop-color-hex`) eklendi; hem renk seçici hem de hex metin girişi yan yana çalışır.
-  - Mevcut container özellikleri, layout yapısı, katman paneli, tema sistemi ve tüm state mantığı korundu.
+- **Açıklama**: Font size, color, weight, align, padding, border-radius, background-color kontrolleri.
 
 ### Adım 18: Katmanlar Üzerinden Sürükle-Bırak (Layers Drag & Drop)
 - **Durum**: Tamamlandı.
-- **Açıklama**: Layers panelinde HTML5 native Drag & Drop desteği eklendi:
-  - **Yeniden Sıralama ve İç İçe Taşıma:** Kullanıcılar katman ağacında herhangi bir elementi sürükleyerek kardeşleri arasında yeniden sıralayabilir veya bir container'ın içine taşıyabilir.
-  - **Drop Zone Algılama:** Mouse Y pozisyonuna göre `before`, `inside`, `after` olmak üzere üç farklı drop zone belirlenir. Her zone için görsel geri bildirim (accent renkli çizgi, kesik outline) sağlanır.
-  - **Kısıtlamalar:** Root container sürüklenemez. Bir element kendi alt öğesinin içine bırakılamaz (circular drop engellenir). Aynı parent içinde taşımalarda index otomatik ayarlanır.
-  - **State Yönetimi (`App.tsx`):** `extractElement`, `insertElementAt`, `moveElementInTree` gibi yardımcı fonksiyonlar eklendi. Tüm taşıma işlemleri immutable şema güncellemeleri ile yapılır.
-  - Tüm mevcut özellikler (selection, properties panel, HTML export) korundu.
+- **Açıklama**: HTML5 native Drag & Drop ile yeniden sıralama, drop zone algılama, circular drop koruması.
 
-### Adım 19: Gelişmiş Canvas Viewport & Alt Araç Barı (Pan/Zoom Controls)
+### Adım 19: Gelişmiş Canvas Viewport & Alt Araç Barı
 - **Durum**: Tamamlandı.
-- **Açıklama**: Canvas görünümü profesyonel bir tasarım aracı deneyimine kavuşturuldu:
-  - **Keskin Web Sayfası Görünümü:** Canvas kağıdı (`canvas-paper`) sıfır border-radius ve sıfır padding ile gerçek bir web sayfası gibi görünür. Yapay kenar boşlukları ve gölgeler kaldırıldı.
-  - **Pan (El Aracı):** Canvas altındaki dock toolbar'da bulunan el aracı ile veya Space tuşuna basılı tutarak canvas üzerinde kaydırma yapılabilir. `grab`/`grabbing` cursor desteği mevcuttur.
-  - **Zoom (+/- / Sıfırla):** %20–300 aralığında yakınlaştırma/uzaklaştırma. Sıfırlama butonu zoom'u %100'e ve pan'i sıfıra döndürür.
-  - **Dot Grid Arka Planı:** Canvas zemininde `radial-gradient` ile oluşturulmuş 20px aralıklı nokta deseni. Temadan bağımsız `--canvas-border` rengi kullanır.
-  - **Floating Selection Badge:** Seçili elementin sol-üst köşesinde mavi bir badge belirir. Badge'de element türü, hızlı ekleme (+), çoğaltma (⧉) ve silme (🗑) butonları bulunur. Hızlı ekleme butonu Container/Text/Button seçenekli bir popover açar.
-  - **Copy/Paste Motoru:** `Ctrl+C` / `Ctrl+V` / `Ctrl+D` klavye kısayolları ile kopyala-yapıştır-çoğalt işlemleri. Her kopyalamada tüm element ağacına yeni unique ID'ler atanır (`deepCloneWithNewIds`). Input/textarea odaklıyken kısayollar devre dışı kalır.
-  - Root container'ın editor görünümü `outline` (zero-layout) kullanır, exported HTML'ye hiçbir yardımcı stil sızmaz.
-  - Tüm mevcut özellikler (selection, layers, drag-drop, properties panel, theme, HTML export) korundu.
+- **Açıklama**: Pan/Zoom, Floating Selection Badge, Copy/Paste motoru, dot grid arka planı.
 
-### Adım 20: Canlı Kod Önizleme ve HTML/CSS Ayrıştırma Motoru (Live Code View & CSS Class Generation)
+### Adım 20: Canlı Kod Önizleme ve HTML/CSS Ayrıştırma Motoru
 - **Durum**: Tamamlandı.
-- **Açıklama**: Canvas altına gerçek zamanlı, katlanabilir bir kod önizleme paneli eklendi:
-  - **CodePanel Bileşeni (`CodePanel.tsx`):** Canvas'ın alt kısmında flex column düzeninde konumlanır. Header'ında dosya sekmeleri ve aksiyon butonları bulunur.
-  - **Sekmeli Arayüz:** `index.html` (class-based HTML) ve `style.css` (tam CSS stylesheet) olmak üzere iki sekme. Syntax highlighting ile renklendirilmiş monospace kod görünümü.
-  - **CSS Class Generation (`class-exporter.ts`):** Her elemente semantic class adları atanır (`fs-container-root`, `fs-text-1`, `fs-button-2`). Tüm inline style'lar HTML'den kaldırılarak ayrı bir CSS çıktısına taşınır.
-  - **Gerçek Zamanlı Senkronizasyon:** Her şema değişiminde HTML ve CSS otomatik yeniden üretilir (useMemo ile optimize edilmiştir).
-  - **Copy Butonu:** Aktif sekmedeki kodu panoya kopyalar. "✓ Copied!" feedback ile kullanıcıya geri bildirim verir.
-  - **Formatlama:** Kod 2-space indent ile temiz ve okunabilir formatta sunulur. Gereksiz default değerler (margin: 5px, padding: 0px gibi) çıktıya eklenmez.
-  - **Syntax Highlighting:** HTML için tag'ler mavi (`#569cd6`), attribute'lar cyan (`#9cdcfe`), değerler turuncu (`#ce9178`). CSS için selector'lar mavi, property'ler cyan, değerler turuncu.
-  - VS Code benzeri koyu tema (`#1e1e1e` arka plan) ile görsel tutarlılık sağlanır.
-  - Mevcut `exportToHtml` (inline style ile export) fonksiyonu korundu — Export HTML butonu için hala kullanılır.
-  - Tüm mevcut özellikler (selection, layers, drag-drop, properties panel, pan/zoom, copy/paste, theme) korundu.
+- **Açıklama**: CodePanel, syntax highlighting, CSS Class Generation, ZIP Export.
+
+### Adım 21: Native Tailwind CSS Mimarisine Geçiş (Option B Pivot)
+- **Durum**: Tamamlandı.
+- **Açıklama**: Tailwind Play CDN entegrasyonu, `tailwindClasses` şema alanı, ElementRenderer Tailwind dönüşümü.
+
+### Adım 22: Tailwind Tabanlı Properties Paneli & Pure Exporter Motoru
+- **Durum**: Tamamlandı.
+- **Açıklama**: `tw.ts` utility modülü, Tailwind class toggle kontrolleri, pure Tailwind HTML export, `class-exporter.ts` yeniden yazımı.
+
+### Adım 23: Akıllı HTML-to-Tailwind Kod İthalatçısı (Smart Importer)
+- **Durum**: Tamamlandı.
+- **Açıklama**: Harici Tailwind bileşenlerini (Tailwind UI, Flowbite vb.) doğrudan canvas'a aktarmak için kapsamlı bir HTML ayrıştırma ve şema dönüştürme motoru geliştirildi:
+  - **HTML Ayrıştırma Motoru (`src/utils/html-importer.ts`):** Browser'ın native `DOMParser` API'sini kullanarak ham HTML string'ini rekürsif olarak işler. Her HTML etiketi (`div`, `section`, `article`, `nav`, `header`, `footer`, `main`, `aside`, `p`, `h1`–`h6`, `span`, `button`, `a`, `label`, `blockquote`, `pre`, `code`, `ul`, `ol`, `li`, `dl`, `dt`, `dd`, `form`) uygun `core-schema` tipine (container/text/button) eşlenir.
+  - **Tailwind Class Koruma:** Kaynak HTML'deki `class="..."` attribute'ları olduğu gibi `props.tailwindClasses` alanına aktarılır. Hiçbir class dönüşümü veya kaybı olmaz.
+  - **Metin ve Hiyerarşi Koruma:** İç içe geçmiş tüm element yapıları ve metin içerikleri (`textContent`) eksiksiz şekilde şema ağacına dönüştürülür. Birden fazla kök element varsa otomatik olarak `flex flex-col` container'a sarılır.
+  - **Import Modal Bileşeni (`ImportModal.tsx`):** Sol Sidebar Toolbox'a eklenen "📥 Import Component" butonu ile açılan, büyük bir textarea içeren modal diyalog. Kullanıcı ham HTML'i yapıştırır, "Import Component" butonuna tıklar ve sonuç anında canvas'ta görünür.
+  - **State Entegrasyonu (`App.tsx`):** `handleImport()` ile parse edilen şema seçili container'ın içine veya root'a eklenir ve yeni import edilen element otomatik seçilir. Modal kapandıktan sonra textarea temizlenir.
+  - Tüm mevcut özellikler (selection, layers, drag-drop, properties panel, code panel, ZIP export, pan/zoom, theme, Tailwind CDN) korundu.
 
 ---
 
 ## Mevcut Hedef
-- Sıradaki adımı bekliyor. Görsel editörün çekirdek layout'u, canvas kontrolleri ve export motoru artık sağlam ve üretime hazır bir temele oturmuştur. Bir sonraki ana kilometre taşı: Bileşen Kütüphanesinin Genişletilmesi — Gelişmiş Form ve UI Elemanları (Input, Textarea, Select, List, İkon) ve Ön Tanımlı UI Bileşen Blokları (Pre-built Component Blocks) eklenmesi.
+- Sıradaki adımı bekliyor. Çekirdek framework artık Tailwind ekosistemi ile native girdi/çıktı yapabilen, son derece güçlü bir görsel oluşturucu haline gelmiştir. Bir sonraki ana kilometre taşı: **Bileşen Kütüphanesinin Genişletilmesi** — Özel Gelişmiş Bileşenler (Image Component Source/Alt Binding, Video Embeds, Input/Textarea/Select form elemanları) ve **Tailwind İnteraktif Davranış Katmanı** (menü, accordion, tab gibi dinamik click/toggle utility script'lerinin properties panel üzerinden yönetimi).

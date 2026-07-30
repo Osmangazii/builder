@@ -6,10 +6,10 @@ interface CodePanelProps {
   schema: UIElement;
 }
 
-type Tab = "html" | "css" | "js";
+type Tab = "html" | "js";
 
 // ═══════════════════════════════════════════════════════════════
-//  HTML FORMATTER — clean 2-space indentation
+//  HTML FORMATTER
 // ═══════════════════════════════════════════════════════════════
 
 function formatHtml(raw: string): string {
@@ -51,43 +51,32 @@ function formatHtml(raw: string): string {
   return lines.join("\n");
 }
 
-/** Escape < and > for tags, and also " for attribute safety. */
 function escapeTag(tag: string): string {
   return tag.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-/** Escape text content between tags. */
 function escapeText(text: string): string {
   return text.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  SYNTAX HIGHLIGHTERS — single-pass to avoid span re-processing
+//  SYNTAX HIGHLIGHTERS
 // ═══════════════════════════════════════════════════════════════
 
 function highlightHtml(formatted: string): string {
   return formatted.replace(
     /(&lt;!--[\s\S]*?--&gt;)|(&lt;!DOCTYPE\s+html&gt;)|(&quot;[^&]*?&quot;|'[^']*')|(\s([a-zA-Z-]+)(?==))|(&lt;\/?)([a-zA-Z0-9]+)|(&lt;\/?)|(&gt;)/gi,
-    (match, comment, doctype, value, _attrSp, attrName, bracket, tagName, bracket2, bracket3) => {
+    (_, comment, doctype, value, _as, attrName, bracket, tagName, b2, b3) => {
       if (comment) return `<span class="hl-comment">${comment}</span>`;
       if (doctype) return `<span class="hl-doctype">${doctype}</span>`;
       if (value) return `<span class="hl-value">${value}</span>`;
       if (attrName) return ` <span class="hl-attr">${attrName}</span>`;
       if (tagName) return `${bracket}<span class="hl-tag">${tagName}</span>`;
-      if (bracket2) return `<span class="hl-bracket">${bracket2}</span>`;
-      if (bracket3) return `<span class="hl-bracket">${bracket3}</span>`;
-      return match;
+      if (b2) return `<span class="hl-bracket">${b2}</span>`;
+      if (b3) return `<span class="hl-bracket">${b3}</span>`;
+      return _;
     },
   );
-}
-
-function highlightCss(code: string): string {
-  const escaped = code.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return escaped
-    .replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="hl-comment">$1</span>')
-    .replace(/([a-zA-Z-]+)(?=\s*:)/g, '<span class="hl-attr">$1</span>')
-    .replace(/(:\s*)([^;]+)(;)/g, '$1<span class="hl-value">$2</span>$3')
-    .replace(/(\.[a-zA-Z0-9_-]+)/g, '<span class="hl-tag">$1</span>');
 }
 
 function highlightJs(code: string): string {
@@ -116,12 +105,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ schema }) => {
   const highlightedHtml = useMemo(() => highlightHtml(formattedHtml), [formattedHtml]);
 
   const handleCopy = useCallback(async () => {
-    let text: string;
-    switch (activeTab) {
-      case "html": text = unescapeHtml(formattedHtml); break;
-      case "css": text = classExport.css; break;
-      case "js": text = classExport.js; break;
-    }
+    const text = activeTab === "html" ? unescapeHtml(formattedHtml) : classExport.js;
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -138,14 +122,6 @@ export const CodePanel: React.FC<CodePanelProps> = ({ schema }) => {
     }
   }, [activeTab, formattedHtml, classExport]);
 
-  const renderCode = () => {
-    switch (activeTab) {
-      case "html": return highlightedHtml;
-      case "css": return highlightCss(classExport.css);
-      case "js": return highlightJs(classExport.js);
-    }
-  };
-
   return (
     <div className={`code-panel${collapsed ? " code-panel--collapsed" : ""}`}>
       <div className="code-panel__header">
@@ -153,10 +129,6 @@ export const CodePanel: React.FC<CodePanelProps> = ({ schema }) => {
           <button className={`code-panel__tab${activeTab === "html" ? " code-panel__tab--active" : ""}`}
             onClick={() => setActiveTab("html")}>
             <span className="code-panel__tab-icon">&lt;/&gt;</span> index.html
-          </button>
-          <button className={`code-panel__tab${activeTab === "css" ? " code-panel__tab--active" : ""}`}
-            onClick={() => setActiveTab("css")}>
-            <span className="code-panel__tab-icon">#</span> style.css
           </button>
           <button className={`code-panel__tab${activeTab === "js" ? " code-panel__tab--active" : ""}`}
             onClick={() => setActiveTab("js")}>
@@ -177,7 +149,9 @@ export const CodePanel: React.FC<CodePanelProps> = ({ schema }) => {
         <div className="code-panel__body">
           <pre className="code-panel__pre">
             <code className="code-panel__code"
-              dangerouslySetInnerHTML={{ __html: renderCode() }} />
+              dangerouslySetInnerHTML={{
+                __html: activeTab === "html" ? highlightedHtml : highlightJs(classExport.js),
+              }} />
           </pre>
         </div>
       )}
