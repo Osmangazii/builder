@@ -133,9 +133,9 @@ function App() {
     "Desktop 1920×1080": { w: 1920, h: 1080 },
   };
 
-  const [canvasWidth, setCanvasWidth] = useState(0);
-  const [canvasHeight, setCanvasHeight] = useState(0);
-  const [activePreset, setActivePreset] = useState<string>("");
+  const [canvasWidth, setCanvasWidth] = useState(1440);
+  const [canvasHeight, setCanvasHeight] = useState(900);
+  const [activePreset, setActivePreset] = useState<string>("Desktop 1440×900");
   const [playMode, setPlayMode] = useState(false);
 
   const applyPreset = useCallback((name: string) => {
@@ -154,9 +154,9 @@ function App() {
     setCanvasHeight(w);
   }, [canvasWidth, canvasHeight]);
 
-  // Desktop: width 0 means full viewport
-  const effectiveWidth = canvasWidth > 0 ? canvasWidth : 0;
-  const effectiveHeight = canvasHeight > 0 ? canvasHeight : 0;
+  // Safe effective dimensions: never 0, NaN, or negative — fall back to 1440×900
+  const effectiveWidth = canvasWidth > 100 ? canvasWidth : 1440;
+  const effectiveHeight = canvasHeight > 100 ? canvasHeight : 900;
 
   // Derive viewport mode for responsive class filtering
   const viewportMode: "desktop" | "tablet" | "mobile" =
@@ -397,20 +397,44 @@ function App() {
         <div className="editor-canvas__viewport">
           <div className="canvas-grid">
             <div className="canvas-transform-layer" style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})` }}>
-              <div className={`canvas-paper${playMode && effectiveWidth > 0 ? " canvas-paper--play" : ""}`}
-                style={{
-                  ...(effectiveWidth > 0 ? { width: effectiveWidth, maxWidth: effectiveWidth } : {}),
-                  ...(effectiveHeight > 0
-                    ? playMode
-                      ? { height: effectiveHeight, overflowY: "auto", overflowX: "hidden" }
-                      : { minHeight: effectiveHeight }
-                    : {}),
-                }}>
-                <ElementRenderer element={schema} selectedElementId={selectedId} onSelect={handleSelect}
-                  onQuickAdd={handleQuickAdd} onDuplicate={handleDup} onDelete={remEl}
-                  viewportMode={viewportMode} onInteraction={handleInteraction}
-                  playMode={playMode} />
-              </div>
+              {playMode && effectiveWidth > 1024 ? (
+                /* ── Desktop monitor shell ── */
+                <div className="monitor-frame">
+                  <div className="monitor-bezel">
+                    <div className="monitor-webcam" />
+                    <div className={`canvas-paper canvas-paper--play-desktop`}
+                      style={{
+                        width: effectiveWidth > 0 ? effectiveWidth : "100%",
+                        maxWidth: effectiveWidth > 0 ? effectiveWidth : "1280px",
+                        height: effectiveHeight > 0 ? effectiveHeight : "auto",
+                        minHeight: 600,
+                        overflowY: "auto",
+                        overflowX: "hidden",
+                      }}>
+                      <ElementRenderer element={schema} selectedElementId={selectedId} onSelect={handleSelect}
+                        onQuickAdd={handleQuickAdd} onDuplicate={handleDup} onDelete={remEl}
+                        viewportMode={viewportMode} onInteraction={handleInteraction}
+                        playMode={playMode} />
+                    </div>
+                  </div>
+                  <div className="monitor-stand" />
+                </div>
+              ) : (
+                <div className={`canvas-paper${playMode && effectiveWidth > 0 && effectiveWidth <= 1024 ? " canvas-paper--play" : ""}`}
+                  style={{
+                    ...(effectiveWidth > 0 ? { width: effectiveWidth, maxWidth: effectiveWidth } : {}),
+                    ...(effectiveHeight > 0
+                      ? playMode
+                        ? { height: effectiveHeight, overflowY: "auto", overflowX: "hidden" }
+                        : { minHeight: effectiveHeight }
+                      : {}),
+                  }}>
+                  <ElementRenderer element={schema} selectedElementId={selectedId} onSelect={handleSelect}
+                    onQuickAdd={handleQuickAdd} onDuplicate={handleDup} onDelete={remEl}
+                    viewportMode={viewportMode} onInteraction={handleInteraction}
+                    playMode={playMode} />
+                </div>
+              )}
             </div>
           </div>
           <div className="canvas-dock">
@@ -436,30 +460,36 @@ function App() {
             </button>
             {/* Device preset icons */}
             <div className="canvas-dock__group">
-              <button className={`canvas-dock__btn${canvasWidth === 375 ? " canvas-dock__btn--active" : ""}`}
-                onClick={() => { setCanvasWidth(375); setCanvasHeight(812); setActivePreset(""); }} title="Mobile 375×812">
+              <button className={`canvas-dock__btn${canvasWidth === 375 && canvasHeight === 812 ? " canvas-dock__btn--active" : ""}`}
+                onClick={() => { setCanvasWidth(375); setCanvasHeight(812); setActivePreset("Mobile 375×812"); }} title="Mobile 375×812">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
               </button>
-              <button className={`canvas-dock__btn${canvasWidth === 768 ? " canvas-dock__btn--active" : ""}`}
-                onClick={() => { setCanvasWidth(768); setCanvasHeight(1024); setActivePreset(""); }} title="Tablet 768×1024">
+              <button className={`canvas-dock__btn${canvasWidth === 768 && canvasHeight === 1024 ? " canvas-dock__btn--active" : ""}`}
+                onClick={() => { setCanvasWidth(768); setCanvasHeight(1024); setActivePreset("Tablet 768×1024"); }} title="Tablet 768×1024">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
               </button>
-              <button className={`canvas-dock__btn${canvasWidth === 0 ? " canvas-dock__btn--active" : ""}`}
-                onClick={() => { setCanvasWidth(0); setCanvasHeight(0); setActivePreset(""); }} title="Desktop (full width)">
+              <button className={`canvas-dock__btn${canvasWidth === 1440 && canvasHeight === 900 ? " canvas-dock__btn--active" : ""}`}
+                onClick={() => { setCanvasWidth(1440); setCanvasHeight(900); setActivePreset("Desktop 1440×900"); }} title="Desktop 1440×900">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
               </button>
             </div>
             <div className="canvas-dock__divider" />
             {/* W / H inputs */}
             <div className="canvas-dock__group" style={{ gap: 3 }}>
-              <input className="canvas-dock__dim-input" type="number" min={0} max={9999}
-                value={canvasWidth || ""}
-                onChange={(e) => { setCanvasWidth(Number(e.target.value) || 0); setActivePreset(""); }}
+              <input className="canvas-dock__dim-input" type="number" min={100} max={9999}
+                value={canvasWidth}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!isNaN(v) && v >= 100) { setCanvasWidth(v); setActivePreset(""); }
+                }}
                 placeholder="W" title="Width (px)" />
               <span className="canvas-dock__dim-sep">×</span>
-              <input className="canvas-dock__dim-input" type="number" min={0} max={9999}
-                value={canvasHeight || ""}
-                onChange={(e) => { setCanvasHeight(Number(e.target.value) || 0); setActivePreset(""); }}
+              <input className="canvas-dock__dim-input" type="number" min={100} max={9999}
+                value={canvasHeight}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!isNaN(v) && v >= 100) { setCanvasHeight(v); setActivePreset(""); }
+                }}
                 placeholder="H" title="Height (px)" />
               <button className="canvas-dock__btn" onClick={swapDimensions} title="Swap W/H"
                 style={{ fontSize: "0.7rem", width: 24, height: 22 }}>
