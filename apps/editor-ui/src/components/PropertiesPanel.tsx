@@ -1,21 +1,11 @@
 import React, { useState } from "react";
-import type { UIElement, TextProps, ButtonProps, ContainerProps, ElementInteraction } from "@fs-builder/core-schema";
+import type { UIElement, TextProps, ButtonProps, ContainerProps, ImageProps } from "@fs-builder/core-schema";
 import { tw, DISPLAY_GROUP, FLEX_DIR_GROUP, ALIGN_GROUP, JUSTIFY_GROUP, FONT_SIZE_GROUP, FONT_WEIGHT_GROUP, TEXT_ALIGN_GROUP } from "../utils/tw";
-
-interface FlatElementInfo {
-  id: string;
-  label: string;
-  hasMeaningfulId: boolean;
-  hasHidden: boolean;
-  type: string;
-}
 
 interface PropertiesPanelProps {
   selectedElement: UIElement | null;
-  onUpdate: (elementId: string, newProps: Partial<TextProps | ButtonProps | ContainerProps>) => void;
+  onUpdate: (elementId: string, newProps: Partial<TextProps | ButtonProps | ContainerProps | ImageProps>) => void;
   onDelete: (elementId: string) => void;
-  /** All elements in the tree (for the target picker dropdown) */
-  allElements?: FlatElementInfo[];
 }
 
 function Section({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
@@ -57,7 +47,7 @@ function Inp({ id, label, value, onChange }: { id: string; label: string; value:
   );
 }
 
-export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElement, onUpdate, onDelete, allElements }) => {
+export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElement, onUpdate, onDelete }) => {
   if (!selectedElement) {
     return <div className="properties-panel-wrapper"><div className="properties-empty">No element selected</div></div>;
   }
@@ -67,27 +57,10 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElemen
   const rawTw: string = (propsAny.tailwindClasses as string) ?? "";
   const isText = type === "text";
   const isButton = type === "button";
+  const isImage = type === "image";
   const textVal = isText ? (selectedElement.props as TextProps).text : isButton ? (selectedElement.props as ButtonProps).text : "";
 
-  // ── Interactions state ─────────────────────────────────────
-  const interactions: ElementInteraction[] = (propsAny.interactions as ElementInteraction[]) ?? [];
-
-  const addInteraction = () => {
-    const newIx: ElementInteraction = { trigger: "onClick", action: "toggleClass", targetElementId: "", className: "hidden" };
-    onUpdate(id, { interactions: [...interactions, newIx] } as Partial<TextProps & ButtonProps & ContainerProps>);
-  };
-
-  const removeInteraction = (idx: number) => {
-    const next = interactions.filter((_, i) => i !== idx);
-    onUpdate(id, { interactions: next } as Partial<TextProps & ButtonProps & ContainerProps>);
-  };
-
-  const updateInteraction = (idx: number, patch: Partial<ElementInteraction>) => {
-    const next = interactions.map((ix, i) => (i === idx ? { ...ix, ...patch } : ix));
-    onUpdate(id, { interactions: next } as Partial<TextProps & ButtonProps & ContainerProps>);
-  };
-
-  const setTw = (next: string) => onUpdate(id, { tailwindClasses: next } as Partial<TextProps & ButtonProps & ContainerProps>);
+  const setTw = (next: string) => onUpdate(id, { tailwindClasses: next } as Partial<TextProps & ButtonProps & ContainerProps & ImageProps>);
   const upd = (fn: (c: string) => string) => setTw(fn(rawTw));
 
   const isFlex = tw.has(rawTw, "flex");
@@ -113,6 +86,22 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElemen
           value={rawTw} onChange={(e) => setTw(e.target.value)}
           placeholder="e.g. flex flex-col p-4 bg-white" />
       </div>
+
+      {/* Image Settings (only for image elements) */}
+      {isImage && (
+        <Section title="Image Settings" defaultOpen={true}>
+          <Inp id="img-src" label="Image URL" value={(selectedElement.props as ImageProps).src ?? ""}
+            onChange={(v) => onUpdate(id, { src: v } as Partial<ImageProps>)} />
+          <Inp id="img-alt" label="Alt Text" value={(selectedElement.props as ImageProps).alt ?? ""}
+            onChange={(v) => onUpdate(id, { alt: v } as Partial<ImageProps>)} />
+          <BtnGroup label="Object Fit" active={(selectedElement.props as ImageProps).objectFit}
+            options={[
+              { value: "cover", label: "Cover" }, { value: "contain", label: "Contain" },
+              { value: "fill", label: "Fill" }, { value: "none", label: "None" },
+            ]}
+            onChange={(v) => upd((c) => tw.setGroupClass(c, ["object-cover", "object-contain", "object-fill", "object-none"], `object-${v}`))} />
+        </Section>
+      )}
 
       {/* Layout */}
       <Section title="Layout">
@@ -184,13 +173,16 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElemen
               { value: "text-xs", label: "XS" }, { value: "text-sm", label: "SM" },
               { value: "text-base", label: "Base" }, { value: "text-lg", label: "LG" },
               { value: "text-xl", label: "XL" }, { value: "text-2xl", label: "2XL" },
+              { value: "text-3xl", label: "3XL" }, { value: "text-4xl", label: "4XL" },
+              { value: "text-5xl", label: "5XL" }, { value: "text-6xl", label: "6XL" },
             ]}
             onChange={(v) => upd((c) => tw.setGroupClass(c, FONT_SIZE_GROUP, v))} />
           <BtnGroup label="Weight"
             active={tw.activeInGroup(rawTw, "font-")}
             options={[
-              { value: "font-normal", label: "N" }, { value: "font-medium", label: "M" },
-              { value: "font-bold", label: "B" },
+              { value: "font-thin", label: "T" }, { value: "font-normal", label: "N" },
+              { value: "font-medium", label: "M" }, { value: "font-semibold", label: "SB" },
+              { value: "font-bold", label: "B" }, { value: "font-extrabold", label: "XB" },
             ]}
             onChange={(v) => upd((c) => tw.setGroupClass(c, FONT_WEIGHT_GROUP, v))} />
           <BtnGroup label="Align"
@@ -201,6 +193,49 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElemen
             onChange={(v) => upd((c) => tw.setGroupClass(c, TEXT_ALIGN_GROUP, v))} />
         </Section>
       )}
+
+      {/* Dimensions / Sizing */}
+      <Section title="Dimensions" defaultOpen={false}>
+        <BtnGroup label="Width" active={tw.activeInGroup(rawTw, "w-")}
+          options={[
+            { value: "w-full", label: "Full" }, { value: "w-auto", label: "Auto" },
+            { value: "w-1/2", label: "½" }, { value: "w-1/3", label: "⅓" },
+            { value: "w-screen", label: "Screen" },
+          ]}
+          onChange={(v) => upd((c) => tw.setGroupClass(c, ["w-full", "w-auto", "w-1/2", "w-1/3", "w-screen"], v))} />
+        <BtnGroup label="Max Width" active={tw.activeInGroup(rawTw, "max-w-")}
+          options={[
+            { value: "max-w-none", label: "None" }, { value: "max-w-4xl", label: "4xl" },
+            { value: "max-w-6xl", label: "6xl" }, { value: "max-w-screen-xl", label: "XL" },
+          ]}
+          onChange={(v) => upd((c) => tw.setGroupClass(c, ["max-w-none", "max-w-4xl", "max-w-6xl", "max-w-screen-xl"], v))} />
+      </Section>
+
+      {/* Effects & Borders */}
+      <Section title="Effects" defaultOpen={false}>
+        <BtnGroup label="Border Radius" active={tw.activeInGroup(rawTw, "rounded-")}
+          options={[
+            { value: "rounded-none", label: "0" }, { value: "rounded", label: "S" },
+            { value: "rounded-lg", label: "M" }, { value: "rounded-xl", label: "L" },
+            { value: "rounded-2xl", label: "XL" }, { value: "rounded-3xl", label: "2XL" },
+            { value: "rounded-full", label: "∞" },
+          ]}
+          onChange={(v) => upd((c) => tw.setGroupClass(c, ["rounded-none", "rounded", "rounded-lg", "rounded-xl", "rounded-2xl", "rounded-3xl", "rounded-full"], v))} />
+        <BtnGroup label="Border Width" active={tw.activeInGroup(rawTw, "border")}
+          options={[
+            { value: "border-0", label: "0" }, { value: "border", label: "1" },
+            { value: "border-2", label: "2" }, { value: "border-4", label: "4" },
+            { value: "border-8", label: "8" },
+          ]}
+          onChange={(v) => upd((c) => tw.setGroupClass(c, ["border-0", "border", "border-2", "border-4", "border-8"], v))} />
+        <BtnGroup label="Shadow" active={tw.activeInGroup(rawTw, "shadow-")}
+          options={[
+            { value: "shadow-sm", label: "S" }, { value: "shadow", label: "M" },
+            { value: "shadow-md", label: "MD" }, { value: "shadow-lg", label: "LG" },
+            { value: "shadow-xl", label: "XL" }, { value: "shadow-2xl", label: "2XL" },
+          ]}
+          onChange={(v) => upd((c) => tw.setGroupClass(c, ["shadow-sm", "shadow", "shadow-md", "shadow-lg", "shadow-xl", "shadow-2xl"], v))} />
+      </Section>
 
       {/* Colors — use setPrefixed for bg-* and text-* prefixes */}
       <Section title="Colors" defaultOpen={false}>
@@ -229,85 +264,6 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ selectedElemen
               type="button">{opt.l}</button>
           ))}
         </div>
-      </Section>
-
-      {/* Interactions */}
-      <Section title="Interactions" defaultOpen={false}>
-        {interactions.length === 0 && (
-          <p style={{ fontSize: "0.72rem", color: "var(--text-dim)", marginBottom: 8 }}>
-            No interactions defined. Add one to make this element interactive.
-          </p>
-        )}
-        {interactions.map((ix, idx) => (
-          <div key={idx} style={{
-            border: "1px solid var(--border-color)", borderRadius: 6, padding: "6px 8px",
-            marginBottom: 8, background: "var(--bg-main)",
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-              <span className="prop-label">{ix.trigger}</span>
-              <button onClick={() => removeInteraction(idx)} style={{
-                border: "none", background: "transparent", color: "var(--danger-color)",
-                cursor: "pointer", fontSize: "0.7rem", padding: "0 4px",
-              }}>✕</button>
-            </div>
-
-            {/* Target element picker */}
-            <div className="prop-field" style={{ marginBottom: 4 }}>
-              <label className="prop-label">Target Element</label>
-              <select className="prop-input" value={ix.targetElementId}
-                onChange={(e) => updateInteraction(idx, { targetElementId: e.target.value })}>
-                <option value="">— Select target —</option>
-                {(allElements ?? []).filter((el) => el.id !== id)
-                  .sort((a, b) => {
-                    // Prioritise elements with meaningful IDs
-                    if (a.hasMeaningfulId && !b.hasMeaningfulId) return -1;
-                    if (!a.hasMeaningfulId && b.hasMeaningfulId) return 1;
-                    return a.label.localeCompare(b.label);
-                  })
-                  .map((el, _i, arr) => {
-                    // Insert a visual separator before the first anonymous element
-                    const needsSep = _i > 0 && !el.hasMeaningfulId && arr[_i - 1].hasMeaningfulId;
-                    return (
-                      <React.Fragment key={el.id}>
-                        {needsSep && (
-                          <option disabled style={{ fontSize: "0.65rem", color: "var(--text-dim)", textAlign: "center" }}>
-                            ─── Other ───
-                          </option>
-                        )}
-                        <option value={el.id}>
-                          {el.hasMeaningfulId
-                            ? `#${el.id} (${el.type})${el.hasHidden ? " [Hidden]" : ""}`
-                            : `${el.label}${el.hasHidden ? " [Hidden]" : ""}`
-                          }
-                        </option>
-                      </React.Fragment>
-                    );
-                  })}
-              </select>
-            </div>
-
-            {/* Action type (read-only for now; always toggleClass) */}
-            <div className="prop-field" style={{ marginBottom: 4 }}>
-              <label className="prop-label">Action</label>
-              <select className="prop-input" value={ix.action}
-                onChange={(e) => updateInteraction(idx, { action: e.target.value as "toggleClass" })}>
-                <option value="toggleClass">Toggle Class</option>
-              </select>
-            </div>
-
-            {/* Class name to toggle */}
-            <div className="prop-field" style={{ marginBottom: 0 }}>
-              <label className="prop-label">Class Name</label>
-              <input className="prop-input" type="text" value={ix.className}
-                onChange={(e) => updateInteraction(idx, { className: e.target.value })}
-                placeholder="e.g. hidden" />
-            </div>
-          </div>
-        ))}
-        <button className="editor-btn editor-btn-block" onClick={addInteraction}
-          style={{ fontSize: "0.75rem", padding: "4px 8px" }}>
-          + Add Interaction
-        </button>
       </Section>
 
       <button className="editor-btn editor-btn-danger editor-btn-block" onClick={() => onDelete(id)} style={{ marginTop: 20 }}>

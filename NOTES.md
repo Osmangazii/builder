@@ -162,27 +162,61 @@ fs-builder, kullanıcıların sürükle-bırak editörü kullanarak tam donanım
     npm run build                  # dist/ → Netlify/Vercel'e yüklenebilir
     ```
 
+### Adım 27: Tasarım Odaklı Mimariye Geçiş (Figma Konseptine Pivot & JS Katmanının Kaldırılması)
+- **Durum**: Tamamlandı.
+- **Açıklama**: Proje, uygulama mantığı ve dinamik JS etkileşimleri yerine saf bir görsel tasarım ve düzenleme aracına (Figma/Webflow tarzı Tailwind Builder) dönüştürüldü:
+  - **JS & Etkileşim Katmanının Temizlenmesi:** `core-schema` içerisindeki `interactions` yapısı (ElementInteraction, ClickAction, InteractionProps), `PropertiesPanel`'deki Interactions akordiyonu ve `ElementRenderer`'daki dinamik class toggle mantığı tamamen kaldırıldı. Canvas seçim ve düzenleme etkileşimleri aynen korundu.
+  - **Sadeleştirilmiş Export Motoru:** `js-generator.ts` tamamen devreden çıkarıldı (dosya silindi). `class-exporter.ts` artık `src/js/app.js` üretmiyor; proje çıktısı saf HTML + Tailwind CSS içeriyor. Vite şablonunda `index.html`, `tailwind.config.js`, `postcss.config.js`, `vite.config.js`, `package.json`, `README.md` ve `src/css/input.css` bulunuyor — JS dosyası yok.
+  - **Code Panel Yenilemesi (`CodePanel.tsx`):** JS sekmesi kaldırıldı. Yeni sekmeler: `index.html` (biçimlendirilmiş HTML), `tailwind.config.js` (Tailwind yapılandırması) ve `Preview` (canlı iframe önizlemesi — Tailwind CDN'li standalone HTML render eder).
+  - **Tasarım Odaklı Yeni Vizyon:** Odak noktası; gelişmiş stil kontrolleri (Typography, Spacing, Flexbox/Grid, Colors, Shadows), zengin bileşen kütüphanesi (Image, Form elemanları, Icons) ve piksel hassasiyetinde görsel düzenleme yeteneklerine çevrildi.
+
+### Adım 28: Figma Tarzı Görsel Zenginleştirme, Görsel (Image) Desteği & Gelişmiş Katman Sistemi
+- **Durum**: Tamamlandı.
+- **Açıklama**: Builder'ın tasarım yetenekleri Figma standartlarına yaklaştırılarak zenginleştirildi:
+  - **Yeni Image Elemanı:** Şemaya, Toolbox'a ve Renderer'a `image` tipi eklendi. URL (`src`), `alt` metni ve `object-fit` kontrolleri Properties paneline entegre edildi. Görsel URL'si boşken yüksek kaliteli SVG placeholder gösteriliyor.
+  - **Figma Tarzı Katmanlar (Layers Tree):** Katmanlara çift tıklayarak özel isim verebilme (Hero, Navbar vb.) ve her eleman tipi için özel SVG ikonlar (`Box`, `Type`, `Image`, `Button`) eklendi.
+  - **Gelişmiş Stil Kontrolleri:** Properties paneline Boyutlandırma (Width/Height/Max-Width), Tipografi (Size/Weight/Align), Kenarlık ve Gölge (Rounded/Shadows) akordiyonları eklendi.
+  - **HTML Import/Export Güncellemesi:** Görsel elemanlarının kayıpsız içe ve dışa aktarımı sağlandı.
+  - **Görsel Seçim Çerçevesi Düzeltmesi (Image Selection Ring Fix):** Tuval üzerinde `image` elemanları seçildiğinde mavi seçim çerçevesinin (`ring`/`outline`) ve seçim rozetinin düzgün görünmesini engelleyen renderer/stil sorunu giderildi. `<img>` elemanı, **Wrapper Container Pattern** (Figma/Webflow image frame) ile interaktif bir wrapper `<div>` içine alındı:
+    - Seçim çift katmanlı gösteriliyor: inset outline + `absolute inset-0 border-2 border-blue-500` explicit inset overlay (Figma tarzı seçim kutusu).
+    - `SelectionBadge` diğer elemanlarla aynı şekilde konumlanıyor. `overflow:hidden` wrapper'a konmadı (badge'i kırpardı); yuvarlatmalar (`rounded-*`) wrapper'dan türetilip `<img>`'e inline `border-radius` olarak uygulandı.
+    - `<img>` root node olmaktan çıkarıldı: `w-full h-full object-cover pointer-events-none block` sınıflarıyla wrapper'ı dolduruyor; `objectFit` prop'u inline style ile uygulanıyor ve tıklamalar `pointer-events: none` sayesinde doğrudan wrapper'a (seçim mantığına) iletiliyor.
+  - **Sıfır Yerleşim Kayması Düzeltmesi (Zero Layout Shift Selection Fix):** Elemanlar seçildiğinde `ring-offset` ve satır içi boşluklar nedeniyle oluşan boyutsal genişleme ve kayma (layout shift) giderildi. Seçim çerçeveleri tamamen elemanın iç sınırına (`inset outline / absolute overlay`) kilitlenerek Figma standartlarında pürüzsüz seçim sağlandı.
+    - Tüm element tiplerinde `selectionStyle` artık `outline: 2px solid #3b82f6; outline-offset: -2px` (inset) kullanıyor — outline fiziksel layout alanı kaplamadığı için seçim hiçbir kardeş elemanı itmiyor.
+    - Image wrapper'daki `ring-2 ring-blue-500 ring-offset-2` sınıfları kaldırıldı (ring-offset görsel olarak dışa taşıyordu); yerine inset outline + absolute overlay kullanılıyor.
+    - Image wrapper `inline-block` → `block` olarak değiştirildi; inline-level box'ların neden olduğu satır içi boşluk/baseline farkı (alt boşluk) ortadan kaldırıldı.
+  - **Ayrık Tuval Seçim Katmanı ve Sıfır Kayma Mimarisi (Decoupled Selection Overlay):** Seçim rozeti (`CONTAINER` action badge) elemanların iç DOM akışından tamamen çıkarıldı. Figma mimarisine uygun olarak tuval üstünde bağımsız, koordinat tabanlı (`bounding rect overlay`) bir katmana taşındı. Böylece eleman seçildiğinde oluşan tüm aşağı/yukarı yerleşim zıplamaları (layout shift) %100 sonlandırıldı.
+    - **`ElementRenderer.tsx` sadeleşti:** Elementler yalnızca kendi içeriklerini ve stillerini render ediyor; içlerinde hiçbir badge/overlay JSX'i kalmadı. Seçim vurgusu `box-shadow: inset 0 0 0 2px #3b82f6` (sıfır layout etkisi) ile elemanın kendi sınırları içinde çiziliyor.
+    - **`SelectionOverlay.tsx` (yeni bileşen):** Seçili elemanın DOM düğümü `document.querySelector('[data-element-id="..."]')` ile bulunup `getBoundingClientRect()` koordinatları tuval viewport'una göre hesaplanıyor. `requestAnimationFrame` döngüsü pan/zoom/scroll sırasında overlay'i gerçek zamanlı takip ediyor. Outline kutusu + action badge (`pointer-events: none` katman, badge butonları `pointer-events: auto`) eleman DOM'undan bağımsız olarak `z-index: 9000+` seviyesinde çiziliyor.
+    - Tüm element tiplerine (`container`, `text`, `button`, `image`) `data-element-id` attribute'u eklendi (overlay hedefi için). Akıllı Katman İsimlendirme ve Çift Tıkla Yeniden Adlandırma (Figma Layers UX)
+- **Durum**: Tamamlandı.
+- **Açıklama**: Katmanlar panelindeki karmaşık ve tekrarlayan "Container" görünümü Figma standartlarında modern bir isimlendirme sistemiyle çözüldü:
+  - **Inline Katman Yeniden Adlandırma:** Katman listesindeki herhangi bir elemana çift tıklayarak özel isim (`customLabel`) verebilme ve `Enter`/`Blur` ile anında kaydetme özelliği eklendi.
+  - **Akıllı Otomatik Etiketleme:** İsimlendirilmemiş elemanlar için içerik ve layout bazlı akıllı başlıklar üretildi (ör. Metin için ilk 15 karakter, Buton için buton yazısı, Container için `Row`, `Grid`, `Section` etiketleri).
+  - **Semantik HTML Import Desteği:** `html-importer.ts` güncellenerek `<header>`, `<nav>`, `<section>`, `<footer>` gibi etiketler ve `id` attribute'ları içe aktarma sırasında otomatik olarak katman isimlerine dönüştürüldü.
+
 ---
 
 ## Mevcut Hedef
-- **🚀 Çekirdek Builder Platformu %100 TAMAMLANDI ve ÜRETİME HAZIR!**
-  Tüm ana sistemler production kalitesine ulaşmıştır:
-  
+- **🎨 Tasarım Odaklı Builder Vizyonu — Yeni Dönem!**
+  Proje artık saf görsel tasarım aracı olarak konumlanmıştır. Tüm JS/interaktif katman kaldırıldı, export motoru pure HTML + Tailwind'e odaklandı.
+
   | Bileşen | Durum |
   |---|---|
   | Görsel Canvas (Pan/Zoom/Selection) | ✅ Tamamlandı |
   | Tailwind Class Management (Properties Panel) | ✅ Tamamlandı |
   | Responsive Viewport Engine (Mobile/Tablet/Desktop) | ✅ Tamamlandı |
-  | Interactive Behavior Layer (onClick Toggle Class) | ✅ Tamamlandı |
-  | Layers Panel (Drag & Drop DOM Tree) | ✅ Tamamlandı |
-  | Smart HTML Importer | ✅ Tamamlandı |
+  | Play Mode (Device Shell Simülasyonu) | ✅ Tamamlandı |
+  | Layers Panel (Drag & Drop + Rename + Smart Labels + Type Icons) | ✅ Tamamlandı |
+  | Image Element (src/alt/object-fit) | ✅ Tamamlandı |
+  | Smart HTML Importer (semantik etiket isimlendirme) | ✅ Tamamlandı |
   | Dark/Light Theme Sistemi | ✅ Tamamlandı |
-  | Live Code Preview Panel | ✅ Tamamlandı |
-  | Modern Vite + Tailwind Proje İhraç (ZIP) | ✅ Tamamlandı |
-  | Vanilla JS Interaction Export | ✅ Tamamlandı |
+  | Live Code Preview Panel (HTML + Tailwind Config + Preview) | ✅ Tamamlandı |
+  | Pure HTML + Tailwind ZIP Export (JS'siz) | ✅ Tamamlandı |
 
 - Bir sonraki aşama planlanan genişletmeler:
-  - **Bileşen Kütüphanesi — Yeni Element Tipleri:** `image` (src/alt binding), `input`/`textarea`/`select` form elemanları, `video` embed, `icon` wrapper.
-  - **Gelişmiş Etkileşimler:** `navigate`, `alert`, `custom` JS aksiyonları.
+  - **Form Elemanları:** `input`/`textarea`/`select` bileşen tiplerinin şemaya eklenmesi.
+  - **Gelişmiş Stil Kontrolleri:** Opacity, Transform/Rotate, Position (absolute/fixed) kontrolleri.
   - **Pre-built Component Blocks:** Navbar, Hero, Card, Footer gibi hazır Tailwind bileşenlerinin tek tıkla eklenmesi.
+  - **AI Destekli Tasarım Üretimi:** Yapay zeka ile görsel tasarım oluşturma altyapısı (canvas artık bu için hazır).
   - **Tauri Masaüstü Derlemesi:** `apps/desktop` paketinin tamamlanması.

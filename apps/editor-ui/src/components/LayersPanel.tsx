@@ -6,27 +6,59 @@ interface LayersPanelProps {
   selectedElementId: string | null;
   onSelect: (elementId: string) => void;
   onMoveElement: (sourceId: string, targetParentId: string, targetIndex: number) => void;
+  onRename: (elementId: string, name: string) => void;
 }
 
 // ── Helpers ────────────────────────────────────────────────────
 
-const TYPE_ICONS: Record<string, string> = {
-  container: "📦",
-  text: "𝜲",
-  button: "🔘",
-};
-
-function getElementLabel(element: UIElement): string {
-  switch (element.type) {
+/** Lucide-style inline SVG type icons */
+function TypeIcon({ type }: { type: string }) {
+  const common = { width: 12, height: 12, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  switch (type) {
     case "container":
-      return "Container";
+      return <svg {...common}><rect x="3" y="3" width="18" height="18" rx="2"/></svg>;
+    case "text":
+      return <svg {...common}><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>;
+    case "button":
+      return <svg {...common}><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M12 12h.01"/></svg>;
+    case "image":
+      return <svg {...common}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>;
+    default:
+      return <svg {...common}><circle cx="12" cy="12" r="9"/></svg>;
+  }
+}
+
+function truncate(text: string, max: number): string {
+  return text.length > max ? text.slice(0, max) + "…" : text;
+}
+
+/** Smart fallback display name based on element type, content and layout classes. */
+function getElementLabel(element: UIElement): string {
+  // Custom Figma-style label takes priority
+  const custom = (element.props as Record<string, unknown>).customLabel as string | undefined;
+  if (custom && custom.trim()) return custom.trim();
+
+  const tw = ((element.props as Record<string, unknown>).tailwindClasses as string) ?? "";
+
+  switch (element.type) {
+    case "container": {
+      // Detect layout role from Tailwind classes
+      if (/flex-row|flex-row-reverse/.test(tw)) return "Row";
+      if (/grid(?!-)/.test(tw)) return "Grid";
+      if (/flex-col/.test(tw)) return "Column";
+      return element.id === "root-container" ? "Root Frame" : "Section";
+    }
     case "text": {
       const txt = element.props.text;
-      return txt ? `Text: ${txt.slice(0, 28)}${txt.length > 28 ? "…" : ""}` : "Text";
+      return txt ? `Heading: “${truncate(txt, 18)}”` : "Text";
     }
     case "button": {
       const txt = element.props.text;
-      return txt ? `Button: ${txt.slice(0, 24)}${txt.length > 24 ? "…" : ""}` : "Button";
+      return txt ? `Button: “${truncate(txt, 14)}”` : "Button";
+    }
+    case "image": {
+      const alt = (element.props as Record<string, unknown>).alt as string | undefined;
+      return alt && alt.trim() ? `Image: ${truncate(alt, 18)}` : "Image";
     }
     default:
       return "Unknown";
@@ -45,6 +77,7 @@ interface LayerNodeProps {
   selectedElementId: string | null;
   onSelect: (elementId: string) => void;
   onMoveElement: (sourceId: string, targetParentId: string, targetIndex: number) => void;
+  onRename: (elementId: string, name: string) => void;
   draggedIdRef: React.MutableRefObject<string | null>;
   defaultExpanded?: boolean;
 }
@@ -59,17 +92,42 @@ const LayerNode: React.FC<LayerNodeProps> = ({
   selectedElementId,
   onSelect,
   onMoveElement,
+  onRename,
   draggedIdRef,
   defaultExpanded = true,
 }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [dropPos, setDropPos] = useState<DropPosition>(null);
+  const [editing, setEditing] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const isSelected = element.id === selectedElementId;
   const isContainer = element.type === "container";
   const hasChildren = isContainer && element.children.length > 0;
   const isRoot = element.id === "root-container";
   const nodeRef = useRef<HTMLDivElement>(null);
+
+  // Focus the rename input when editing starts
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const startRename = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isRoot) return;
+    setDraftName(getElementLabel(element));
+    setEditing(true);
+  };
+
+  const commitRename = () => {
+    setEditing(false);
+    const trimmed = draftName.trim();
+    if (trimmed) onRename(element.id, trimmed);
+  };
 
   // Auto-scroll when selected
   useEffect(() => {
@@ -187,8 +245,27 @@ const LayerNode: React.FC<LayerNodeProps> = ({
           <span className="layer-toggle layer-toggle--spacer" />
         )}
 
-        <span className="layer-icon">{TYPE_ICONS[element.type] ?? "?"}</span>
-        <span className="layer-label">{getElementLabel(element)}</span>
+        <span className="layer-icon"><TypeIcon type={element.type} /></span>
+        {editing ? (
+          <input
+            ref={inputRef}
+            className="layer-rename-input"
+            value={draftName}
+            onChange={(e) => setDraftName(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") commitRename();
+              if (e.key === "Escape") setEditing(false);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className="layer-label" onDoubleClick={startRename} title="Double-click to rename">
+            {getElementLabel(element)}
+          </span>
+        )}
 
         {isContainer && (
           <span className="layer-badge">{element.children.length}</span>
@@ -208,6 +285,7 @@ const LayerNode: React.FC<LayerNodeProps> = ({
               selectedElementId={selectedElementId}
               onSelect={onSelect}
               onMoveElement={onMoveElement}
+              onRename={onRename}
               draggedIdRef={draggedIdRef}
               // Deeply nested levels (>= 3) start collapsed to keep the tree readable
               defaultExpanded={depth < 2}
@@ -232,6 +310,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   selectedElementId,
   onSelect,
   onMoveElement,
+  onRename,
 }) => {
   const draggedIdRef = useRef<string | null>(null);
 
@@ -245,6 +324,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
         selectedElementId={selectedElementId}
         onSelect={onSelect}
         onMoveElement={onMoveElement}
+        onRename={onRename}
         draggedIdRef={draggedIdRef}
       />
     </div>

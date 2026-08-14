@@ -1,33 +1,13 @@
-import type { UIElement, TextProps, ButtonProps, ElementInteraction } from "@fs-builder/core-schema";
-import { generateJs } from "./js-generator";
+import type { UIElement, TextProps, ButtonProps, ImageProps } from "@fs-builder/core-schema";
 
 // ═══════════════════════════════════════════════════════════════
-//  HTML GENERATOR
+//  STATIC HTML GENERATOR
+//  Pure design export — Tailwind classes only, no JavaScript.
 // ═══════════════════════════════════════════════════════════════
 
 function resolveTw(el: UIElement): string {
   const p = el.props as Record<string, unknown>;
   return (p.tailwindClasses as string) ?? "";
-}
-
-/** Collect all element IDs that are targeted/interact with interactions. */
-function collectTargetedIds(schema: UIElement): Set<string> {
-  const ids = new Set<string>();
-  function walk(el: UIElement) {
-    const interactions: ElementInteraction[] | undefined =
-      (el.props as Record<string, unknown>).interactions as ElementInteraction[] | undefined;
-    if (interactions) {
-      for (const ix of interactions) {
-        ids.add(el.id);
-        if (ix.targetElementId) ids.add(ix.targetElementId);
-      }
-    }
-    if ("children" in el && el.children.length > 0) {
-      for (const ch of el.children) walk(ch);
-    }
-  }
-  walk(schema);
-  return ids;
 }
 
 function escapeHtml(str: string): string {
@@ -39,24 +19,29 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function elementToHtml(el: UIElement, targetedIds: Set<string>): string {
+function elementToHtml(el: UIElement): string {
   if (!el) return "";
   const { type, props, children } = el;
   const tw = resolveTw(el);
   const classAttr = tw ? ` class="${tw}"` : "";
-  const idAttr = targetedIds.has(el.id) ? ` id="${el.id}"` : "";
 
   switch (type) {
     case "container": {
       const inner = children.length > 0
-        ? children.map((ch) => elementToHtml(ch, targetedIds)).join("")
+        ? children.map(elementToHtml).join("")
         : "";
-      return `<div${idAttr}${classAttr}>${inner}</div>`;
+      return `<div${classAttr}>${inner}</div>`;
     }
     case "text":
-      return `<p${idAttr}${classAttr}>${escapeHtml((props as TextProps).text || "")}</p>`;
+      return `<p${classAttr}>${escapeHtml((props as TextProps).text || "")}</p>`;
     case "button":
-      return `<button${idAttr}${classAttr}>${escapeHtml((props as ButtonProps).text || "")}</button>`;
+      return `<button${classAttr}>${escapeHtml((props as ButtonProps).text || "")}</button>`;
+    case "image": {
+      const img = props as ImageProps;
+      const srcAttr = img.src && img.src.trim() ? ` src="${escapeHtml(img.src)}"` : "";
+      const altAttr = img.alt ? ` alt="${escapeHtml(img.alt)}"` : "";
+      return `<img${srcAttr}${altAttr}${classAttr}>`;
+    }
     default:
       return "";
   }
@@ -123,7 +108,8 @@ export default defineConfig({
 function generateReadme(): string {
   return `# FS-Builder Export
 
-Bu proje, FS-Builder görsel web sitesi oluşturucu ile oluşturulmuştur.
+Bu proje, FS-Builder görsel tasarım aracı ile oluşturulmuştur.
+Saf statik HTML + Tailwind CSS çıktısıdır; JavaScript içermez.
 
 ## Kullanım
 
@@ -151,10 +137,8 @@ npm run preview
 ├── postcss.config.js       # PostCSS yapılandırması
 ├── README.md               # Bu dosya
 ├── src/
-│   ├── css/
-│   │   └── input.css       # Tailwind CSS girdisi
-│   └── js/
-│       └── app.js          # JavaScript etkileşimleri
+│   └── css/
+│       └── input.css       # Tailwind CSS girdisi
 └── dist/                   # Derleme çıktısı (npm run build)
 \`\`\`
 
@@ -169,15 +153,6 @@ function generateInputCss(): string {
   return `@tailwind base;
 @tailwind components;
 @tailwind utilities;
-`;
-}
-
-function generateAppJs(schema: UIElement): string {
-  const jsCode = generateJs(schema);
-  return `// FS-Builder — Interactive Behaviors
-// This file is auto-generated. Do not edit manually.
-
-${jsCode}
 `;
 }
 
@@ -197,8 +172,7 @@ export interface ClassExport {
 }
 
 export function generateClassExport(schema: UIElement): ClassExport {
-  const targetedIds = collectTargetedIds(schema);
-  const bodyHtml = elementToHtml(schema, targetedIds);
+  const bodyHtml = elementToHtml(schema);
 
   // ── Standalone HTML (Tailwind CDN, self-contained) ───────────
   const standaloneHtml = `<!DOCTYPE html>
@@ -214,7 +188,7 @@ ${bodyHtml}
 </body>
 </html>`;
 
-  // ── Vite-powered index.html (imports local CSS + JS) ────────
+  // ── Vite-powered index.html (imports local Tailwind CSS) ────
   const viteIndexHtml = `<!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -225,11 +199,10 @@ ${bodyHtml}
 </head>
 <body>
 ${bodyHtml}
-  <script type="module" src="/src/js/app.js"></script>
 </body>
 </html>`;
 
-  // ── Bundle all project files ────────────────────────────────
+  // ── Bundle all project files (pure HTML + Tailwind, no JS) ──
   const files: ProjectFiles = {
     "index.html": viteIndexHtml,
     "package.json": generatePackageJson(),
@@ -238,7 +211,6 @@ ${bodyHtml}
     "postcss.config.js": generatePostcssConfig(),
     "README.md": generateReadme(),
     "src/css/input.css": generateInputCss(),
-    "src/js/app.js": generateAppJs(schema),
   };
 
   return { html: standaloneHtml, files };

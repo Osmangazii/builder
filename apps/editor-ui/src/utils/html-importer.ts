@@ -62,6 +62,50 @@ function resolveElId(el: Element, fallbackPrefix: string): string {
   return genId(fallbackPrefix);
 }
 
+// ── Semantic tag → Figma-style layer labels ────────────────────
+const SEMANTIC_LABELS: Record<string, string> = {
+  header: "Header",
+  nav: "Navigation",
+  section: "Section",
+  footer: "Footer",
+  main: "Main Content",
+  article: "Article Card",
+  aside: "Aside",
+  form: "Form",
+  figure: "Figure",
+};
+
+/**
+ * Resolve a custom layer label from data-name / semantic tag / id attributes.
+ * Returns undefined when no meaningful label can be derived.
+ */
+function resolveCustomLabel(el: Element): string | undefined {
+  // 1) Explicit data-name attribute wins
+  const dataName = el.getAttribute("data-name");
+  if (dataName && dataName.trim()) return dataName.trim();
+
+  // 2) Semantic tags get descriptive labels
+  const tag = el.tagName.toLowerCase();
+  if (SEMANTIC_LABELS[tag]) return SEMANTIC_LABELS[tag];
+
+  // 3) A meaningful id (not a generated one) becomes a humanized label
+  const id = el.getAttribute("id");
+  if (id && id.trim() && !/^(container|text|button|image)-\w+/.test(id)) {
+    return id
+      .replace(/[-_]+/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .trim();
+  }
+
+  return undefined;
+}
+
+/** Build props with an optional customLabel injected. */
+function withLabel(base: Record<string, unknown>, el: Element): Record<string, unknown> {
+  const label = resolveCustomLabel(el);
+  return label ? { ...base, customLabel: label } : base;
+}
+
 /**
  * Build an ordered list of child UIElements by converting direct child nodes.
  * Text nodes become lightweight text UIElements; element nodes are recursively converted.
@@ -133,7 +177,23 @@ function convertNode(node: Element | ChildNode): UIElement | null {
     return {
       id: resolveElId(el, "container"),
       type: "container",
-      props: { tailwindClasses: tw },
+      props: withLabel({ tailwindClasses: tw }, el),
+      children: [],
+    };
+  }
+
+  // Parse <img> elements into image schema nodes
+  if (tag === "img") {
+    const fit = /object-(cover|contain|fill|none)/.exec(tw)?.[1];
+    return {
+      id: resolveElId(el, "image"),
+      type: "image",
+      props: withLabel({
+        src: el.getAttribute("src") || "",
+        alt: el.getAttribute("alt") || "",
+        objectFit: (fit as "cover" | "contain" | "fill" | "none") ?? "cover",
+        tailwindClasses: tw,
+      }, el),
       children: [],
     };
   }
@@ -156,7 +216,7 @@ function convertNode(node: Element | ChildNode): UIElement | null {
       return {
         id: resolveElId(el, "text"),
         type: "text",
-        props: { text: fullText || tag, tailwindClasses: tw },
+        props: withLabel({ text: fullText || tag, tailwindClasses: tw }, el),
         children: [],
       };
     }
@@ -167,7 +227,7 @@ function convertNode(node: Element | ChildNode): UIElement | null {
     return {
       id: resolveElId(el, "container"),
       type: "container",
-      props: { tailwindClasses: tw },
+      props: withLabel({ tailwindClasses: tw }, el),
       children: items,
     };
   }
@@ -181,7 +241,7 @@ function convertNode(node: Element | ChildNode): UIElement | null {
       return {
         id: resolveElId(el, "container"),
         type: "container",
-        props: { tailwindClasses: tw },
+        props: withLabel({ tailwindClasses: tw }, el),
         children: items,
       };
     }
@@ -193,7 +253,7 @@ function convertNode(node: Element | ChildNode): UIElement | null {
     return {
       id: resolveElId(el, "button"),
       type: "button",
-      props: { text: btnText || "Button", tailwindClasses: tw },
+      props: withLabel({ text: btnText || "Button", tailwindClasses: tw }, el),
       children: [],
     };
   }
@@ -202,7 +262,7 @@ function convertNode(node: Element | ChildNode): UIElement | null {
   return {
     id: resolveElId(el, "container"),
     type: "container",
-    props: { tailwindClasses: tw },
+    props: withLabel({ tailwindClasses: tw }, el),
     children: items,
   };
 }

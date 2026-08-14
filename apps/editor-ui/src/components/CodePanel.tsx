@@ -6,10 +6,10 @@ interface CodePanelProps {
   schema: UIElement;
 }
 
-type Tab = "html" | "js";
+type Tab = "html" | "config" | "preview";
 
 // ═══════════════════════════════════════════════════════════════
-//  HTML FORMATTER
+//  HTML FORMATTER (clean 2-space indentation)
 // ═══════════════════════════════════════════════════════════════
 
 function formatHtml(raw: string): string {
@@ -87,7 +87,6 @@ function highlightJs(code: string): string {
     .replace(/('(?:[^'\\]|\\.)*')/g, '<span class="hl-value">$1</span>')
     .replace(/("(?:[^"\\]|\\.)*")/g, '<span class="hl-value">$1</span>')
     .replace(/\b(const|let|var|function|return|if|else|for|while|class|import|export|from|async|await|new|this|typeof|instanceof|try|catch|finally|switch|case|default|break|continue|do)\b/g, '<span class="hl-keyword">$1</span>')
-    .replace(/\b(addEventListener|querySelector|log|alert|toggle|classList|location|href)\b/g, '<span class="hl-builtin">$1</span>')
     .replace(/\b(\d+)\b/g, '<span class="hl-number">$1</span>');
 }
 
@@ -104,46 +103,36 @@ export const CodePanel: React.FC<CodePanelProps> = ({ schema }) => {
   const codeSnapshot = useMemo(() => {
     try {
       const exportResult = generateClassExport(schema);
-      const jsCode = exportResult.files?.["src/js/app.js"]
-        ?? exportResult.files?.["script.js"]
-        ?? "// No dynamic interactions defined yet.";
       return {
         html: exportResult.html ?? "",
-        js: jsCode,
+        tailwindConfig: exportResult.files?.["tailwind.config.js"] ?? "",
       };
     } catch (err) {
       console.error("[CodePanel] Failed to generate export:", err);
       return {
         html: "<!-- Error generating HTML preview -->",
-        js: "// Error generating JS preview\nconsole.error('Failed to compile interactions');",
+        tailwindConfig: "// Error generating Tailwind config",
       };
     }
   }, [schema]);
 
   const formattedHtml = useMemo(() => formatHtml(codeSnapshot.html), [codeSnapshot.html]);
   const highlightedHtml = useMemo(() => highlightHtml(formattedHtml), [formattedHtml]);
-  const highlightedJs = useMemo(() => {
-    try {
-      return highlightJs(codeSnapshot.js);
-    } catch {
-      return highlightJs("// Error rendering JS preview");
-    }
-  }, [codeSnapshot.js]);
+  const highlightedConfig = useMemo(() => highlightJs(codeSnapshot.tailwindConfig), [codeSnapshot.tailwindConfig]);
 
   const handleCopy = useCallback(async () => {
     try {
       const text = activeTab === "html"
         ? unescapeHtml(formattedHtml)
-        : codeSnapshot.js;
+        : codeSnapshot.tailwindConfig;
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Fallback: use textarea for older browsers
       try {
         const text = activeTab === "html"
           ? unescapeHtml(formattedHtml)
-          : codeSnapshot.js;
+          : codeSnapshot.tailwindConfig;
         const ta = document.createElement("textarea");
         ta.value = text;
         document.body.appendChild(ta);
@@ -156,7 +145,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ schema }) => {
         // Silently fail — copy isn't critical
       }
     }
-  }, [activeTab, formattedHtml, codeSnapshot.js]);
+  }, [activeTab, formattedHtml, codeSnapshot.tailwindConfig]);
 
   return (
     <div className={`code-panel${collapsed ? " code-panel--collapsed" : ""}`}>
@@ -166,15 +155,21 @@ export const CodePanel: React.FC<CodePanelProps> = ({ schema }) => {
             onClick={() => setActiveTab("html")}>
             <span className="code-panel__tab-icon">&lt;/&gt;</span> index.html
           </button>
-          <button className={`code-panel__tab${activeTab === "js" ? " code-panel__tab--active" : ""}`}
-            onClick={() => setActiveTab("js")}>
-            <span className="code-panel__tab-icon">JS</span> app.js
+          <button className={`code-panel__tab${activeTab === "config" ? " code-panel__tab--active" : ""}`}
+            onClick={() => setActiveTab("config")}>
+            <span className="code-panel__tab-icon">TW</span> tailwind.config.js
+          </button>
+          <button className={`code-panel__tab${activeTab === "preview" ? " code-panel__tab--active" : ""}`}
+            onClick={() => setActiveTab("preview")}>
+            <span className="code-panel__tab-icon">▶</span> Preview
           </button>
         </div>
         <div className="code-panel__actions">
-          <button className="code-panel__action" onClick={handleCopy} title="Copy Code">
-            {copied ? "✓ Copied!" : "📋 Copy"}
-          </button>
+          {activeTab !== "preview" && (
+            <button className="code-panel__action" onClick={handleCopy} title="Copy Code">
+              {copied ? "✓ Copied!" : "📋 Copy"}
+            </button>
+          )}
           <button className="code-panel__action code-panel__action--toggle"
             onClick={() => setCollapsed((p) => !p)} title={collapsed ? "Expand" : "Collapse"}>
             {collapsed ? "▴" : "▾"}
@@ -183,12 +178,21 @@ export const CodePanel: React.FC<CodePanelProps> = ({ schema }) => {
       </div>
       {!collapsed && (
         <div className="code-panel__body">
-          <pre className="code-panel__pre">
-            <code className="code-panel__code"
-              dangerouslySetInnerHTML={{
-                __html: activeTab === "html" ? highlightedHtml : highlightedJs,
-              }} />
-          </pre>
+          {activeTab === "preview" ? (
+            <iframe
+              className="code-panel__iframe"
+              srcDoc={codeSnapshot.html}
+              sandbox="allow-scripts"
+              title="Output Preview"
+            />
+          ) : (
+            <pre className="code-panel__pre">
+              <code className="code-panel__code"
+                dangerouslySetInnerHTML={{
+                  __html: activeTab === "html" ? highlightedHtml : highlightedConfig,
+                }} />
+            </pre>
+          )}
         </div>
       )}
     </div>

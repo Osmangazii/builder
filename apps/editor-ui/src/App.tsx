@@ -1,9 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { UIElement, ElementType, ElementInteraction } from "@fs-builder/core-schema";
+import type { UIElement, ElementType } from "@fs-builder/core-schema";
 import { generateClassExport } from "@fs-builder/exporters";
 import JSZip from "jszip";
 import "./App.css";
 import { ElementRenderer } from "./components/ElementRenderer";
+import { SelectionOverlay } from "./components/SelectionOverlay";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import { LayersPanel } from "./components/LayersPanel";
 import { CodePanel } from "./components/CodePanel";
@@ -39,35 +40,6 @@ function countElements(e: UIElement): number {
   let c = 1; if ("children" in e && e.children.length > 0) for (const ch of e.children) c += countElements(ch); return c;
 }
 
-export interface FlatElementInfo {
-  id: string;
-  label: string;
-  /** True if the element has a meaningful (non-auto-generated) ID */
-  hasMeaningfulId: boolean;
-  /** True if the element's tailwindClasses include "hidden" */
-  hasHidden: boolean;
-  type: string;
-}
-
-/** Flatten the element tree into a rich list for the interaction target picker. */
-function flattenElements(e: UIElement): FlatElementInfo[] {
-  const result: FlatElementInfo[] = [];
-  function walk(el: UIElement) {
-    const tw = (el.props as Record<string, unknown>).tailwindClasses as string ?? "";
-    // An ID is "meaningful" if it doesn't match the auto-generated pattern
-    const hasMeaningfulId = !/^\w+-imported-\d+-[a-z0-9]{4}$/.test(el.id);
-    const hasHidden = /(?:^|\s)hidden(?:$|\s)/.test(tw);
-    const label = el.type === "text" || el.type === "button"
-      ? `${el.type}: ${(el.props as Record<string, unknown>).text ?? el.id}`
-      : `${el.type}: ${el.id}`;
-    result.push({ id: el.id, label, hasMeaningfulId, hasHidden, type: el.type });
-    if ("children" in el && el.children.length > 0) {
-      for (const ch of el.children) walk(ch);
-    }
-  }
-  walk(e);
-  return result;
-}
 function findById(e: UIElement, id: string): UIElement | null {
   if (e.id === id) return e; if ("children" in e && e.children) for (const c of e.children) { const f = findById(c, id); if (f) return f; } return null;
 }
@@ -174,6 +146,10 @@ function App() {
     if (sid === schema.id || isDesc(findById(schema, sid)!, tpid)) return; setSchema((prev) => moveTree(prev, sid, tpid, tidx));
   }, [schema]);
 
+  const handleRename = useCallback((elementId: string, label: string) => {
+    setSchema((prev) => updRec(prev, elementId, { customLabel: label } as Partial<UIElement["props"]>));
+  }, []);
+
   const handleSelect = (id: string) => setSelectedId(id);
 
   const handleCopy = useCallback(() => {
@@ -197,6 +173,7 @@ function App() {
       case "text": ne = { id, type: "text", props: { text: "New Text", tailwindClasses: "text-base text-gray-700" }, children: [] }; break;
       case "button": ne = { id, type: "button", props: { text: "New Button", tailwindClasses: "bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded border border-gray-300" }, children: [] }; break;
       case "container": ne = { id, type: "container", props: { tailwindClasses: "flex flex-col gap-2 p-4 border border-gray-200 rounded" }, children: [] }; break;
+      case "image": ne = { id, type: "image", props: { src: "", alt: "Image", objectFit: "cover", tailwindClasses: "w-full h-48 object-cover" }, children: [] }; break;
     }
     const t = findById(schema, sid);
     if (t && t.type === "container" && sid !== schema.id) addEl(sid, ne); else setSchema((prev) => addSib(prev, sid, ne));
@@ -210,6 +187,7 @@ function App() {
       case "text": ne = { id, type: "text", props: { text: "New Text", tailwindClasses: "text-base text-gray-700" }, children: [] }; break;
       case "button": ne = { id, type: "button", props: { text: "New Button", tailwindClasses: "bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded border border-gray-300" }, children: [] }; break;
       case "container": ne = { id, type: "container", props: { tailwindClasses: "flex flex-col gap-2 p-4 border border-gray-200 rounded" }, children: [] }; break;
+      case "image": ne = { id, type: "image", props: { src: "", alt: "Image", objectFit: "cover", tailwindClasses: "w-full h-48 object-cover" }, children: [] }; break;
     }
     const sel = selectedId ? findById(schema, selectedId) : null; addEl(sel && sel.type === "container" ? sel.id : schema.id, ne); setSelectedId(id);
   };
@@ -261,25 +239,6 @@ function App() {
     setTimeout(() => setExportStatus(null), 2500);
   }, [schema]);
 
-  // ── Interaction handler ───────────────────────────────────────
-  // Called by ElementRenderer when a user clicks an element withinteractions.
-  const handleInteraction = useCallback((sourceId: string, interactions: ElementInteraction[]) => {
-    for (const ix of interactions) {
-      if (ix.action === "toggleClass") {
-        // Find and toggle the class on the target element's tailwindClasses
-        const target = findById(schema, ix.targetElementId);
-        if (!target) continue;
-        const currentTw = ((target.props as Record<string, unknown>).tailwindClasses as string) ?? "";
-        const cls = ix.className || "hidden";
-        const classes = currentTw.split(/\s+/).filter(Boolean);
-        const newTw = classes.includes(cls)
-          ? classes.filter((c) => c !== cls).join(" ")
-          : [...classes, cls].join(" ");
-        updEl(ix.targetElementId, { tailwindClasses: newTw } as Partial<UIElement["props"]>);
-      }
-    }
-  }, [schema]);
-
   const toggleTheme = useCallback(() => setTheme((p) => (p === "dark" ? "light" : "dark")), []);
 
   type Tool = "select" | "hand";
@@ -290,6 +249,7 @@ function App() {
   const [isPanning, setIsPanning] = useState(false);
   const panStart = useRef({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const effectiveTool: Tool = isSpaceHeld ? "hand" : activeTool;
 
   // ── Cleanup any leftover responsive override style tags ─────
@@ -329,7 +289,6 @@ function App() {
   const hCC = useCallback((e: React.MouseEvent) => { if (effectiveTool === "select" && e.target === e.currentTarget) setSelectedId(null); }, [effectiveTool]);
 
   const selectedEl = selectedId ? findById(schema, selectedId) : null;
-  const allElements = flattenElements(schema);
 
   return (
     <div className="editor-layout" data-theme={theme}>
@@ -373,6 +332,7 @@ function App() {
               <button className="editor-btn editor-btn-block" onClick={() => handleAddNew("container")}>+ Container</button>
               <button className="editor-btn editor-btn-block" onClick={() => handleAddNew("text")}>+ Text</button>
               <button className="editor-btn editor-btn-block" onClick={() => handleAddNew("button")}>+ Button</button>
+              <button className="editor-btn editor-btn-block" onClick={() => handleAddNew("image")}>🖼 + Image</button>
               <div className="sidebar-section-divider" />
               <button className="editor-btn editor-btn-block" onClick={() => setShowImport(true)}>📥 Import</button>
             </div>
@@ -383,7 +343,7 @@ function App() {
               <span className="sidebar-section-count">{countElements(schema)}</span>
             </div>
             <LayersPanel element={schema} selectedElementId={selectedId}
-              onSelect={handleSelect} onMoveElement={handleMove} />
+              onSelect={handleSelect} onMoveElement={handleMove} onRename={handleRename} />
           </div>
         </div>
       </aside>
@@ -394,7 +354,7 @@ function App() {
         onMouseDown={hMD} onMouseMove={hMM}
         onMouseUp={hMU} onMouseLeave={hMU}
       >
-        <div className="editor-canvas__viewport">
+        <div className="editor-canvas__viewport" ref={viewportRef}>
           <div className="canvas-grid">
             <div className="canvas-transform-layer" style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})` }}>
               {playMode && effectiveWidth > 1024 ? (
@@ -412,9 +372,7 @@ function App() {
                         overflowX: "hidden",
                       }}>
                       <ElementRenderer element={schema} selectedElementId={selectedId} onSelect={handleSelect}
-                        onQuickAdd={handleQuickAdd} onDuplicate={handleDup} onDelete={remEl}
-                        viewportMode={viewportMode} onInteraction={handleInteraction}
-                        playMode={playMode} />
+                        viewportMode={viewportMode} playMode={playMode} />
                     </div>
                   </div>
                   <div className="monitor-stand" />
@@ -430,9 +388,7 @@ function App() {
                       : {}),
                   }}>
                   <ElementRenderer element={schema} selectedElementId={selectedId} onSelect={handleSelect}
-                    onQuickAdd={handleQuickAdd} onDuplicate={handleDup} onDelete={remEl}
-                    viewportMode={viewportMode} onInteraction={handleInteraction}
-                    playMode={playMode} />
+                    viewportMode={viewportMode} playMode={playMode} />
                 </div>
               )}
             </div>
@@ -511,6 +467,16 @@ function App() {
               </button>
             </div>
           </div>
+          {/* Decoupled selection overlay (outside element DOM flow) */}
+          <SelectionOverlay
+            selectedElementId={playMode ? null : selectedId}
+            element={selectedEl}
+            viewportRef={viewportRef}
+            playMode={playMode}
+            onQuickAdd={handleQuickAdd}
+            onDuplicate={handleDup}
+            onDelete={remEl}
+          />
           {/* ═══ close editor-canvas__viewport ═══ */}
         </div>
         <CodePanel schema={schema} />
@@ -526,8 +492,7 @@ function App() {
           </button>
         </div>
         <div className="sidebar-content">
-          <PropertiesPanel selectedElement={selectedEl} onUpdate={updEl} onDelete={remEl}
-            allElements={allElements} />
+          <PropertiesPanel selectedElement={selectedEl} onUpdate={updEl} onDelete={remEl} />
         </div>
       </aside>
 

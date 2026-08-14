@@ -1,26 +1,26 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import type { UIElement, ElementType, TextProps, ButtonProps, ElementInteraction } from "@fs-builder/core-schema";
+import React, { useCallback } from "react";
+import type { UIElement, TextProps, ButtonProps, ImageProps } from "@fs-builder/core-schema";
 
 interface ElementRendererProps {
   element: UIElement;
   selectedElementId: string | null;
   onSelect: (elementId: string) => void;
-  onQuickAdd: (siblingId: string, type: ElementType) => void;
-  onDuplicate: (elementId: string) => void;
-  onDelete: (elementId: string) => void;
   /** Active viewport device mode; used to strip inapplicable responsive Tailwind classes */
   viewportMode?: "desktop" | "tablet" | "mobile";
-  /** Called when an element with interactions is clicked in the canvas */
-  onInteraction?: (sourceId: string, interactions: ElementInteraction[]) => void;
-  /** When true, hide all selection UI and run interactions directly */
+  /** When true, hide all selection UI (pure preview mode) */
   playMode?: boolean;
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  container: "Container",
-  text: "Text",
-  button: "Button",
-};
+/** High-quality SVG placeholder shown when an image has no src yet */
+const PLACEHOLDER_IMG =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400">` +
+    `<rect width="100%" height="100%" fill="#e2e8f0"/>` +
+    `<rect width="100%" height="100%" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="8 6"/>` +
+    `<text x="50%" y="50%" fill="#64748b" font-family="Inter, sans-serif" font-size="20" font-weight="600" text-anchor="middle" dominant-baseline="middle">Image</text>` +
+    `</svg>`
+  );
 
 // ── Responsive class filter ───────────────────────────────────
 // Tailwind Play CDN compiles @media rules based on window.innerWidth.
@@ -53,63 +53,12 @@ function filterResponsiveClasses(tw: string, viewportMode: string): string {
     .join(" ");
 }
 
-// ── Selection Badge ────────────────────────────────────────────
-
-const SelectionBadge: React.FC<{
-  element: UIElement;
-  onQuickAdd: (siblingId: string, type: ElementType) => void;
-  onDuplicate: (elementId: string) => void;
-  onDelete: (elementId: string) => void;
-}> = ({ element, onQuickAdd, onDuplicate, onDelete }) => {
-  const [showPopover, setShowPopover] = useState(false);
-  const popoverRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!showPopover) return;
-    const handler = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) setShowPopover(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showPopover]);
-
-  const hAB = (e: React.MouseEvent) => { e.stopPropagation(); };
-  const hAdd = (e: React.MouseEvent) => { e.stopPropagation(); setShowPopover((p) => !p); };
-  const hAT = (e: React.MouseEvent, t: ElementType) => { e.stopPropagation(); setShowPopover(false); onQuickAdd(element.id, t); };
-  const hDup = (e: React.MouseEvent) => { e.stopPropagation(); onDuplicate(element.id); };
-  const hDel = (e: React.MouseEvent) => { e.stopPropagation(); onDelete(element.id); };
-
-  return (
-    <div className="sel-badge" onClick={hAB}>
-      <span className="sel-badge__label">{TYPE_LABELS[element.type] ?? "Element"}</span>
-      <div className="sel-badge__actions">
-        <span className="sel-badge__btn" onClick={hAdd} title="Quick Add">+</span>
-        {showPopover && (
-          <div className="sel-badge__popover" ref={popoverRef}>
-            <button className="sel-badge__popover-item" onClick={(e) => hAT(e, "container")}>Container</button>
-            <button className="sel-badge__popover-item" onClick={(e) => hAT(e, "text")}>Text</button>
-            <button className="sel-badge__popover-item" onClick={(e) => hAT(e, "button")}>Button</button>
-          </div>
-        )}
-        <span className="sel-badge__btn" onClick={hDup} title="Duplicate">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="2.5" y="0.5" width="9" height="9" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M0 3V11C0 11.5523 0.44772 12 1 12H9" stroke="currentColor" strokeWidth="1.2" fill="none"/></svg>
-        </span>
-        <span className="sel-badge__btn sel-badge__btn--danger" onClick={hDel} title="Delete">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 3H10M4.5 3V1.5C4.5 1.22386 4.72386 1 5 1H7C7.27614 1 7.5 1.22386 7.5 1.5V3M9.5 3V10C9.5 10.5523 9.05228 11 8.5 11H3.5C2.94772 11 2.5 10.5523 2.5 10V3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
-        </span>
-      </div>
-    </div>
-  );
-};
-
 // ── Tailwind class resolver ──────────────────────────────────
 
 function resolveClasses(element: UIElement, viewportMode: string): string {
-  // Each element stores tailwindClasses in its props.
-  // Since UIElement.props is a discriminated union, we access it via a safe cast.
   const tailwindClasses = (element.props as Record<string, unknown>).tailwindClasses as string | undefined;
   // Use empty string check (not falsy check) so that intentionally blank classes
-  // don't trigger the aggressive fallback (which adds bg-gray-50 / text-gray-900).
+  // don't trigger any legacy fallback.
   if (tailwindClasses !== undefined && tailwindClasses !== null) {
     const trimmed = tailwindClasses.trim();
     if (trimmed) {
@@ -118,32 +67,28 @@ function resolveClasses(element: UIElement, viewportMode: string): string {
         : trimmed;
     }
   }
-
-  // No visual fallback — return empty so elements stay transparent/neutral
-  // instead of getting aggressive bg-gray-50 or text-gray-900 defaults.
   return "";
 }
 
 // ── Utility element detector ──────────────────────────────────
-// Small positioning helpers (badges, dots, icon wraps) should get
-// a subtle selection indicator instead of the full intrusive badge.
+// Small positioning helpers (badges, dots, icon wraps) get a subtle
+// dashed indicator instead of the full selection highlight.
 
 function isUtilityElement(element: UIElement): boolean {
   const tw = ((element.props as Record<string, unknown>).tailwindClasses as string) ?? "";
-  // Absolute/fixed positioned elements are likely badges, toggles, overlays
   if (/\babsolute\b/.test(tw) || /\bfixed\b/.test(tw)) return true;
-  // Very small dimensions indicate icons, dots, or decorative elements
   if (/\bw-0\.?5?\b|\bh-0\.?5?\b|\bw-1\b|\bh-1\b|\bw-1\.5\b|\bh-1\.5\b|\bw-2\b|\bh-2\b/.test(tw)) return true;
-  // sr-only or inset-0 full-cover elements are structural, not interactive
   if (/\bsr-only\b/.test(tw)) return true;
   return false;
 }
 
 // ── Main Renderer ─────────────────────────────────────────────
+// Elements render ONLY their actual content & styles. The selection
+// outline is an inset box-shadow (zero layout shift) and the floating
+// action badge lives in the decoupled SelectionOverlay layer.
 
 export const ElementRenderer: React.FC<ElementRendererProps> = ({
-  element, selectedElementId, onSelect, onQuickAdd, onDuplicate, onDelete,
-  viewportMode = "desktop", onInteraction, playMode = false,
+  element, selectedElementId, onSelect, viewportMode = "desktop", playMode = false,
 }) => {
   if (!element) return null;
 
@@ -152,32 +97,19 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
   const isRoot = id === "root-container";
   const isUtility = isUtilityElement(element);
 
-  // Read interactions from props (available on all types via CoreElementProps)
-  const interactions: ElementInteraction[] | undefined =
-    (element.props as Record<string, unknown>).interactions as ElementInteraction[] | undefined;
-
-  // In play mode, hide all selection UI; in edit mode use normal styling
+  // Zero layout shift selection highlight: inset box-shadow draws strictly
+  // inside the element bounds and never affects layout flow.
   const selectionStyle: React.CSSProperties = !playMode && isSelected
     ? isUtility
       ? { outline: "1px dashed #3b82f680", outlineOffset: 0 }
-      : { outline: "2px solid #3b82f6", outlineOffset: "1px" }
+      : { boxShadow: "inset 0 0 0 2px #3b82f6" }
     : {};
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (playMode) {
-      // Play mode: fire interactions directly without selecting
-      if (interactions && interactions.length > 0 && onInteraction) {
-        onInteraction(id, interactions);
-      }
-    } else {
-      // Edit mode: select then fire interactions
-      onSelect(id);
-      if (interactions && interactions.length > 0 && onInteraction) {
-        onInteraction(id, interactions);
-      }
-    }
-  }, [id, playMode, onSelect, interactions, onInteraction]);
+    // Play mode: pure preview — no selection; Edit mode: select the element
+    if (!playMode) onSelect(id);
+  }, [id, playMode, onSelect]);
 
   const tw = resolveClasses(element, viewportMode);
 
@@ -186,6 +118,7 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
       return (
         <div
           data-id={id}
+          data-element-id={id}
           onClick={handleClick}
           className={tw}
           style={{
@@ -195,16 +128,11 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
             ...selectionStyle,
           }}
         >
-          {!playMode && isSelected && !isUtility && (
-            <SelectionBadge element={element} onQuickAdd={onQuickAdd} onDuplicate={onDuplicate} onDelete={onDelete} />
-          )}
           {children.length > 0 ? (
             children.map((child) => (
               <ElementRenderer key={child.id} element={child}
                 selectedElementId={selectedElementId} onSelect={onSelect}
-                onQuickAdd={onQuickAdd} onDuplicate={onDuplicate} onDelete={onDelete}
-                viewportMode={viewportMode} onInteraction={onInteraction}
-                playMode={playMode} />
+                viewportMode={viewportMode} playMode={playMode} />
             ))
           ) : (
             !playMode && <div style={{ minHeight: "20px", backgroundColor: "#f0f0f0" }} />
@@ -216,13 +144,11 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
       return (
         <p
           data-id={id}
+          data-element-id={id}
           onClick={handleClick}
           className={tw}
           style={{ position: playMode ? "" : "relative", cursor: playMode ? "auto" : "pointer", ...selectionStyle }}
         >
-          {!playMode && isSelected && !isUtility && (
-            <SelectionBadge element={element} onQuickAdd={onQuickAdd} onDuplicate={onDuplicate} onDelete={onDelete} />
-          )}
           {(element.props as TextProps).text || "Default Text"}
         </p>
       );
@@ -231,16 +157,52 @@ export const ElementRenderer: React.FC<ElementRendererProps> = ({
       return (
         <button
           data-id={id}
+          data-element-id={id}
           onClick={handleClick}
           className={tw}
-          style={{ position: playMode ? "" : "relative", cursor: playMode ? "pointer" : "pointer", ...selectionStyle }}
+          style={{ position: playMode ? "" : "relative", cursor: "pointer", ...selectionStyle }}
         >
-          {!playMode && isSelected && !isUtility && (
-            <SelectionBadge element={element} onQuickAdd={onQuickAdd} onDuplicate={onDuplicate} onDelete={onDelete} />
-          )}
           {(element.props as ButtonProps).text || "Default Button"}
         </button>
       );
+
+    case "image": {
+      const p = element.props as ImageProps;
+      const src = p.src && p.src.trim() ? p.src : PLACEHOLDER_IMG;
+      // Map the wrapper's rounded-* class to an inline border-radius so the
+      // <img> corners clip correctly inside the interactive wrapper without
+      // needing overflow:hidden (which would be redundant now that the badge
+      // no longer lives inside the element).
+      const roundedClass = tw.match(/(^|\s)(rounded(?:-[a-z0-9]+)?)/)?.[2];
+      const imgRadius =
+        roundedClass === "rounded-sm" ? "0.125rem" :
+        roundedClass === "rounded" ? "0.25rem" :
+        roundedClass === "rounded-md" ? "0.375rem" :
+        roundedClass === "rounded-lg" ? "0.5rem" :
+        roundedClass === "rounded-xl" ? "0.75rem" :
+        roundedClass === "rounded-2xl" ? "1rem" :
+        roundedClass === "rounded-3xl" ? "1.5rem" :
+        roundedClass === "rounded-full" ? "9999px" :
+        "0";
+
+      return (
+        <div
+          data-id={id}
+          data-element-id={id}
+          onClick={handleClick}
+          className={`relative block transition-all ${tw}`}
+          style={selectionStyle}
+        >
+          <img
+            src={src}
+            alt={p.alt || "Image"}
+            className="w-full h-full object-cover pointer-events-none block"
+            style={{ objectFit: p.objectFit || "cover", borderRadius: imgRadius }}
+            draggable={false}
+          />
+        </div>
+      );
+    }
 
     default:
       return null;
